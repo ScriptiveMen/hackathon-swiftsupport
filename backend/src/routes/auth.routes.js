@@ -1,17 +1,34 @@
 const express = require("express");
 const validators = require("../validators/auth.validators.js");
 const authControllers = require("../controllers/auth.controller.js");
+const authMiddleware = require("../middleware/auth.middleware.js");
 
 const router = express.Router();
 
 /* POST /api/auth/register  */
 router.post(
-    "/register",
-    validators.registerUserValidations,
-    authControllers.registerUser,
+  "/register",
+  validators.registerUserValidations,
+  authControllers.registerUser,
 );
 
 /* POST /api/auth/login */
-/* GET /api/auth/me */
+router.post(
+  "/login",
+  validators.loginUserValidations,
+  authControllers.loginUser,
+);
+
+/* GET /api/auth/getUserById */
+router.get("/getUser", authMiddleware, authControllers.getUserById);
+
+/* DELETE /api/auth/delete */
+router.delete("/delete", authMiddleware, authControllers.deleteUser);
+
+/* GET /api/auth/organizations */
+router.get(
+  "/organizations",
+  authControllers.getAllOrganizations,
+);
 
 module.exports = router;
