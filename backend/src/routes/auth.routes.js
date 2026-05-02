@@ -31,4 +31,6 @@ router.get(
   authControllers.getAllOrganizations,
 );
 
+router.get("/getAllUsers", authMiddleware, authControllers.getAllUsers);
+
 module.exports = router;

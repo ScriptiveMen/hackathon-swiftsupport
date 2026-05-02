@@ -5,13 +5,13 @@ const getAllTickets = async (req, res) => {
     const tickets = await ticketModel.find();
 
     res.status(200).json({
-      status: "true",
+      status: true,
       message: "Tickets fetched successfully",
       data: tickets,
     });
   } catch (error) {
     res.status(500).json({
-      status: "false",
+      status: false,
       message: "Error fetching tickets",
       error: error.message,
     });
@@ -27,17 +27,17 @@ const getTicketById = async (req, res) => {
     if (!ticket) {
       return res
         .status(404)
-        .json({ status: "false", message: "Ticket not found" });
+        .json({ status: false, message: "Ticket not found" });
     }
 
     res.status(200).json({
-      status: "true",
+      status: true,
       message: "Ticket fetched successfully",
       data: ticket,
     });
   } catch (error) {
     res.status(500).json({
-      status: "false",
+      status: false,
       message: `Error fetching ticket: ${error.message}`,
     });
   }
@@ -59,13 +59,13 @@ const createTicket = async (req, res) => {
     });
 
     res.status(201).json({
-      status: "true",
+      status: true,
       message: "Ticket created successfully",
       data: newTicket,
     });
   } catch (error) {
     res.status(500).json({
-      status: "false",
+      status: false,
       message: `Error creating ticket: ${error.message}`,
     });
   }
@@ -85,13 +85,13 @@ const updateTicket = async (req, res) => {
     if (!updatedTicket) {
       return res
         .status(404)
-        .json({ status: "false", message: "Ticket not found" });
+        .json({ status: false, message: "Ticket not found" });
     }
 
     res
       .status(200)
       .json({
-        status: "true",
+        status: true,
         message: "Ticket updated successfully",
         data: updatedTicket,
       });
@@ -99,7 +99,7 @@ const updateTicket = async (req, res) => {
     res
       .status(500)
       .json({
-        status: "false",
+        status: false,
         message: `Error updating ticket: ${error.message}`,
       });
   }
@@ -114,17 +114,17 @@ const deleteTicket = async (req, res) => {
     if (!deletedTicket) {
       return res
         .status(404)
-        .json({ status: "false", message: "Ticket not found" });
+        .json({ status: false, message: "Ticket not found" });
     }
 
     res
       .status(200)
-      .json({ status: "true", message: "Ticket deleted successfully" });
+      .json({ status: true, message: "Ticket deleted successfully" });
   } catch (error) {
     res
       .status(500)
       .json({
-        status: "false",
+        status: false,
         message: `Error deleting ticket: ${error.message}`,
       });
   }
@@ -144,13 +144,13 @@ const ticketAssginedToAgent = async (req, res) => {
     if (!updatedTicket) {
       return res
         .status(404)
-        .json({ status: "false", message: "Ticket not found" });
+        .json({ status: false, message: "Ticket not found" });
     }
 
     res
       .status(200)
       .json({
-        status: "true",
+        status: true,
         message: "Ticket assigned to agent successfully",
         data: updatedTicket,
       });
@@ -158,7 +158,7 @@ const ticketAssginedToAgent = async (req, res) => {
     res
       .status(500)
       .json({
-        status: "false",
+        status: false,
         message: `Error assigning ticket to agent: ${error.message}`,
       });
   }
@@ -178,13 +178,13 @@ const ticketStatusUpdate = async (req, res) => {
     if (!updatedTicket) {
       return res
         .status(404)
-        .json({ status: "false", message: "Ticket not found" });
+        .json({ status: false, message: "Ticket not found" });
     }
 
     res
       .status(200)
       .json({
-        status: "true",
+        status: true,
         message: "Ticket status updated successfully",
         data: updatedTicket,
       });
@@ -192,7 +192,7 @@ const ticketStatusUpdate = async (req, res) => {
     res
       .status(500)
       .json({
-        status: "false",
+        status: false,
         message: `Error updating ticket status: ${error.message}`,
       });
   }
