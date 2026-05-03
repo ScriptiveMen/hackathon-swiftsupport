@@ -20,15 +20,13 @@ async function registerUser(req, res) {
     if (role === "admin") {
       // Admin: create a new organization
       if (!organizationName) {
-        return res
-          .status(400)
-          .json({
-            message: "Organization name is required for admin registration",
-          });
+        return res.status(400).json({
+          message: "Organization name is required for admin registration",
+        });
       }
 
       const existingOrganization = await organizationModel.findOne({
-        name: { $regex: new RegExp(`^${organizationName}$`, 'i') },  //case‑insensitive search to avoid "Acme Corp" and "acme corp" being treated as different
+        name: { $regex: new RegExp(`^${organizationName}$`, "i") }, //case‑insensitive search to avoid "Acme Corp" and "acme corp" being treated as different
       });
 
       if (existingOrganization) {
@@ -112,7 +110,9 @@ async function registerUser(req, res) {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: `Registration failed: ${error.message}` });
+    return res
+      .status(500)
+      .json({ message: `Registration failed: ${error.message}` });
   }
 }
 
@@ -123,27 +123,35 @@ const loginUser = async (req, res) => {
     const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(400).json({ status: "false", message: "Invalid email or password" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid email or password" });
     }
 
     // Check if account is active
     if (!user.isActive) {
-      return res.status(401).json({ status: "false", message: "Account is disabled. Please contact admin." });
+      return res
+        .status(401)
+        .json({
+          status: false,
+          message: "Account is disabled. Please contact admin.",
+        });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ status: "false", message: "Invalid email or password" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid email or password" });
     }
 
     const token = jwt.sign(
       {
         userId: user._id,
-        role: user.role,
         organizationId: user.organizationId,
       },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     const isProduction = process.env.NODE_ENV === "production";
@@ -154,7 +162,7 @@ const loginUser = async (req, res) => {
     });
 
     return res.status(200).json({
-      status: "true",
+      status: true,
       message: "Login successful",
       user: {
         id: user._id,
@@ -167,61 +175,97 @@ const loginUser = async (req, res) => {
   } catch (error) {
     console.error("login Error", error);
     return res.status(500).json({
-      status: "false",
+      status: false,
       message: `Login Error: ${error.message}`,
     });
   }
 };
 
 const deleteUser = async (req, res) => {
-    try {
-        const userId = req.user.userId;
+  try {
+    const userId = req.user.userId;
 
-        const user = await userModel.findById(userId);
+    const user = await userModel.findById(userId);
 
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        await userModel.findByIdAndDelete(userId);
-
-        res.status(200).json({ message: "User deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ status: "false", message: `Delete User Error: ${error.message}` });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-}
+
+    await userModel.findByIdAndDelete(userId);
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({
+        status: false,
+        message: `Delete User Error: ${error.message}`,
+      });
+  }
+};
 
 const getAllOrganizations = async (req, res) => {
-    try {
-        
-        const organizations = await organizationModel.find();
+  try {
+    const organizations = await organizationModel.find();
 
-        res.status(200).json({ status: "true", data: organizations });
-    } catch (error) {
-        res.status(500).json({ status: "false", message: `Get Organizations Error: ${error.message}` });
-    }
-}
+    res.status(200).json({ status: true, data: organizations });
+  } catch (error) {
+    res
+      .status(500)
+      .json({
+        status: false,
+        message: `Get Organizations Error: ${error.message}`,
+      });
+  }
+};
 
 const getUserById = async (req, res) => {
-    try {
-        const { id } = req.user.userId;
+  try {
+    const { userId } = req.user;
 
-        const user = await userModel.findById(id);
+    const user = await userModel.findById(userId);
 
-        if (!user) {
-            return res.status(404).json({ status: "false", message: "User not found" });
-        }
-
-        res.status(200).json({ status: "true", data: user });
-    } catch (error) {
-        res.status(500).json({ status: "false", message: `Get User Error: ${error.message}` });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: false, message: "User not found" });
     }
-}
+
+    res.status(200).json({ status: true, data: user });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ status: false, message: `Get User Error: ${error.message}` });
+  }
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    const { userId, organizationId } = req.user;
+
+    const users = await userModel.find().select("-password");
+
+    const user = await userModel.findById(userId);
+
+    if (!user || user.organizationId.toString() !== organizationId.toString()) {
+      return res
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
+    }
+
+    res.status(200).json({ status: true, data: users });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ status: false, message: `Get Users Error: ${error.message}` });
+  }
+};
 
 module.exports = {
   registerUser,
   loginUser,
   deleteUser,
   getAllOrganizations,
-  getUserById
+  getUserById,
+  getAllUsers,
 };
