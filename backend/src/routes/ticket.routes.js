@@ -13,6 +13,8 @@ const {
 
 const authMiddleware = require("../middleware/auth.middleware.js");
 
+const validators = require("../validators/ticket.validators.js");
+
 //GET /api/tickets/getAllTickets
 router.get("/getAllTickets", getAllTickets);
 
@@ -20,10 +22,10 @@ router.get("/getAllTickets", getAllTickets);
 router.get("/getTicketById/:id", getTicketById);
 
 //POST /api/tickets/createTicket
-router.post("/createTicket", authMiddleware, createTicket);
+router.post("/createTicket", authMiddleware, validators.ticketValidations , createTicket);
 
 //PUT /api/tickets/updateTicket/:id 
-router.put("/updateTicket/:id", authMiddleware, updateTicket);
+router.put("/updateTicket/:id", authMiddleware, validators.ticketValidations, updateTicket);
 
 //DELETE /api/tickets/deleteTicket/:id
 router.delete("/deleteTicket/:id", authMiddleware, deleteTicket);

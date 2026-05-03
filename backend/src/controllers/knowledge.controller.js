@@ -16,7 +16,7 @@ const getAllFAQ = async (req, res) => {
         .json({ status: false, message: "Unauthorized access" });
     }
 
-    const knowledgeBase = await knowledgeModel.find();
+    const knowledgeBase = await knowledgeModel.find({ organizationId });
 
     res.status(200).json({ status: true, data: knowledgeBase });
   } catch (error) {
@@ -170,10 +170,10 @@ const deleteFAQ = async (req, res) => {
 const searchFAQ = async (req, res) => {
   try {
     const { userId, organizationId } = req.user;
-    let { q } = req.query; // <-- use "q" instead of "query"
+    let { query } = req.query; // <-- use "q" instead of "query"
 
     // Validate
-    if (!q || typeof q !== "string" || q.trim() === "") {
+    if (!query || typeof query !== "string" || query.trim() === "") {
       return res
         .status(400)
         .json({
@@ -184,7 +184,7 @@ const searchFAQ = async (req, res) => {
 
     // Escape regex special characters to prevent errors and injection
     const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const safeQuery = escapeRegex(q.trim());
+    const safeQuery = escapeRegex(query.trim());
 
     // Authorization: only admin/agent (or adjust as needed)
     const user = await userModel.findById(userId);
