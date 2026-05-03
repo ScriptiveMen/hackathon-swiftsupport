@@ -1,49 +1,34 @@
-import React, { useEffect } from "react";
-import { Route, Routes } from "react-router";
-import Lenis from "lenis";
-import Login from "./pages/common/Login.jsx";
-import Register from "./pages/common/Register.jsx";
-import Home from "./pages/common/Home.jsx";
-import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
-import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-const App = () => {
-    useEffect(() => {
-        const lenis = new Lenis({
-            duration: 1.2,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-            smooth: true,
-        });
+// Layouts
+import AgentLayout from "./layout/AgentLayout";
 
-        let rafId;
-        function raf(time) {
-            lenis.raf(time);
-            rafId = requestAnimationFrame(raf);
-        }
-        rafId = requestAnimationFrame(raf);
+// Pages
+import AgentDashboard from "./pages/agent/AgentDashboard";
+import AgentChat from "./pages/agent/AgentChat";
+import AgentTicketHistory from "./pages/agent/AgentTicketHistory";
+import AgentFAQ from "./pages/agent/AgentFAQ";
+import AgentSettings from "./pages/agent/AgentSettings";
+import AgentDocs from "./pages/agent/AgentDocs";
 
-        return () => {
-            cancelAnimationFrame(rafId);
-            lenis.destroy();
-        };
-    }, []);
+function App() {
+  return (
+    <Routes>
+      {/* Redirect root to /agent for now, assuming agent is the main focus */}
+      <Route path="/" element={<Navigate to="/agent" replace />} />
 
-    return (
-        <div>
-            <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-
-                {/* Admin Routes */}
-                <Route path="/admin" element={<AdminDashboard />} />
-
-                {/* Agent Routes */}
-                <Route path="/agent" element={<AgentDashboard />} />
-            </Routes>
-        </div>
-    );
-};
+      {/* Agent Routes wrapped in AgentLayout */}
+      <Route path="/agent" element={<AgentLayout />}>
+        <Route index element={<AgentDashboard />} />
+        <Route path="chat" element={<AgentChat />} />
+        <Route path="tickets" element={<AgentTicketHistory />} />
+        <Route path="faq" element={<AgentFAQ />} />
+        <Route path="settings" element={<AgentSettings />} />
+        <Route path="docs" element={<AgentDocs />} />
+      </Route>
+    </Routes>
+  );
+}
 
 export default App;
-
