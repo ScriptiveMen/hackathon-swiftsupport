@@ -1,1 +1,68 @@
 @import "tailwindcss";
+
+@theme {
+  --color-nexus-bg:       #e8f4fd;
+  --color-nexus-card:     #ffffff;
+  --color-nexus-surface:  #f0f8ff;
+  --color-nexus-blue:     #04b8ff;
+  --color-nexus-blue-mid: #6ed6ff;
+  --color-nexus-blob:     #0bbaff;
+  --color-nexus-dark:     #1a3a4a;
+  --color-nexus-muted:    #5a7a8a;
+  --color-nexus-label:    #4a6070;
+  --color-nexus-text:     #1e3a4a;
+  --font-sans: 'Inter', sans-serif;
+}
+
+button, a {
+  cursor: pointer;
+  user-select: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(25px, -18px) scale(1.06); }
+}
+@keyframes blob-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(-20px, 22px) scale(1.04); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.animate-spin-slow   { animation: spin 0.8s linear infinite; }
+.animate-pulse-dot   { animation: pulse-dot 2s ease-in-out infinite; }
+.blob-drift          { animation: blob-drift   9s ease-in-out infinite; }
+.blob-drift-2        { animation: blob-drift-2 11s ease-in-out infinite; }
+.animate-fade-in-up  { animation: fade-in-up 0.6s ease-out both; }
+.animate-float       { animation: float 4s ease-in-out infinite; }
+
+@font-face {
+  font-family: "Flexing Bold";
+  src: url(./assets/fonts/flexing-bold.woff2) format('woff2');
+}
+@font-face {
+  font-family: "Quera";
+  src: url(./assets/fonts/quera.woff2) format('woff2');
+}
+@font-face {
+  font-family: "Switzer Extrabold";
+  src: url(./assets/fonts/Switzer-Extrabold.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  src: url(./assets/fonts/Inter-Regular.woff2) format('woff2');
+}
