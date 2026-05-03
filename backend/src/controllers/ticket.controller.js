@@ -45,16 +45,14 @@ const getTicketById = async (req, res) => {
 
 const createTicket = async (req, res) => {
   try {
-    const { userId, organizationId, chatId } = req.user.userId;
-    const { title, description, status, priority } = req.body;
+    const { userId, organizationId } = req.user;
+    const { title, description, priority } = req.body;
 
     const newTicket = await ticketModel.create({
       userId,
       organizationId,
-      chatId,
       title,
       description,
-      status,
       priority,
     });
 
@@ -74,7 +72,7 @@ const createTicket = async (req, res) => {
 const updateTicket = async (req, res) => {
   try {
     const ticketId = req.params.id;
-    const { title, description, status, priority } = req.body;
+    const { title, description, status = "open", priority } = req.body;
 
     const updatedTicket = await ticketModel.findByIdAndUpdate(
       ticketId,
