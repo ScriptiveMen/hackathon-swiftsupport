@@ -8,123 +8,125 @@ const aiService = require("../service/ai.service");
 
 async function aiResponse(req, res) {
   try {
-    const { userId, organizationId } = req.user;
-    const { question } = req.body;
-
-    const user = await userModel.findById(userId);
-    if (!user || user.organizationId.toString() !== organizationId.toString()) {
-      return res
-        .status(403)
-        .json({ status: false, message: "Unauthorized access" });
-    }
+    const { userId, organizationId, role } = req.user; // ✅ added role
+    let { question, chatId } = req.body;
 
     if (!question) {
-      return res
-        .status(400)
-        .json({ status: false, message: "Question is required" });
+      return res.status(400).json({ status: false, message: "Question is required" });
     }
 
+    // If chatId provided, validate it
+    let chat = null;
+    let ticket = null;
+    let isExistingChat = false;
+
+    if (chatId) {
+      chat = await chatModel.findById(chatId);
+      if (!chat) {
+        return res.status(404).json({ status: false, message: "Chat not found" });
+      }
+      ticket = await ticketModel.findOne({ chatId });
+      isExistingChat = true;
+
+      // If agent assigned and customer is talking → no AI, just save message
+      if (ticket && ticket.assignedTo && role === "customer") {
+        await messageModel.create({ chatId, sender: "user", content: question });
+        return res.status(200).json({
+          status: true,
+          answer: "Your message has been sent to the agent. They'll reply soon.",
+          agentAssigned: true,
+        });
+      }
+    }
+
+    // Fetch knowledge base
     const knowledgeBaseEntries = await knowledgeBaseModel
       .find({ organizationId })
       .select("-_id question answer tags");
+    const kbText = knowledgeBaseEntries
+      .map((entry) => `Q: ${entry.question}\nA: ${entry.answer}`)
+      .join("\n\n");
+    const userPrompt = `${kbText}\n\nCustomer Question: ${question}`;
 
-    // if (!knowledgeBaseEntries) {
-    //   return res.status(500).json({ status: false, message: "Failed to fetch knowledge base" });
-    // }
-
-    const content =
-      knowledgeBaseEntries
-        .map((entry) => `Q: ${entry.question}\nA: ${entry.answer}`)
-        .join("\n\n") + `\n\nCustomer Question: ${question}`;
-
-    const aiResponseText = await aiService.generateResponse(question, content);
-
-    if (!aiResponseText) {
-      return res
-        .status(500)
-        .json({ status: false, message: "Failed to generate AI response" });
+    // Generate AI response
+    let aiReply = await aiService.generateResponse(userPrompt, ""); // adjust if your service expects 2 params
+    if (!aiReply) {
+      return res.status(500).json({ status: false, message: "AI service failed" });
     }
 
-    // If AI suggests creating a ticket
-    if (aiResponseText.startsWith("CREATE_TICKET:")) {
-      const ticketSummary = aiResponseText.replace("CREATE_TICKET:", "").trim();
+    // Helper to save messages
+    const saveUserMessage = async (cid) => {
+      await messageModel.create({ chatId: cid, sender: "user", content: question });
+    };
+    const saveAiMessage = async (cid, reply) => {
+      await messageModel.create({ chatId: cid, sender: "ai", content: reply });
+    };
 
-      // Improved regex: capture fields more reliably, remove trailing punctuation
-      const match = ticketSummary.match(
-        /title:\s*(.*?),\s*description:\s*(.*?),\s*priority:\s*(.*?),\s*status:\s*(.*?)(?:\.|$)/i,
-      );
+    // CASE: AI wants to create a ticket
+    if (aiReply.startsWith("CREATE_TICKET:")) {
+      // Use existing chat OR create new one
+      let targetChatId = chatId;
+      if (!targetChatId) {
+        const newChat = await chatModel.create({ organizationId, userId, status: "active" });
+        targetChatId = newChat._id;
+      }
 
-      let title = "Support needed";
-      let description = question; // fallback to original question
-      let priority = "medium";
-      let status = "open";
+      // Save user message
+      await saveUserMessage(targetChatId);
 
+      // Parse ticket details
+      const ticketSummary = aiReply.replace("CREATE_TICKET:", "").trim();
+      const match = ticketSummary.match(/title:\s*(.*?),\s*description:\s*(.*?),\s*priority:\s*(.*?),\s*status:\s*(.*?)(?:\.|$)/i);
+      let title = "Support needed", description = question, priority = "medium", status = "open";
       if (match) {
         title = match[1].trim() || title;
         description = match[2].trim() || question;
-        // Normalize priority – ensure valid enum value
-        let rawPriority = match[3].trim().toLowerCase();
-        if (["low", "medium", "high", "urgent"].includes(rawPriority)) {
-          priority = rawPriority;
-        }
-        // Normalize status – remove any trailing period and ensure valid
+        if (["low","medium","high","urgent"].includes(match[3].trim().toLowerCase())) priority = match[3].trim().toLowerCase();
         let rawStatus = match[4].trim().toLowerCase().replace(/\.$/, "");
-        if (["open", "in-progress", "resolved", "closed"].includes(rawStatus)) {
-          status = rawStatus;
-        }
+        if (["open","in-progress","resolved","closed"].includes(rawStatus)) status = rawStatus;
       }
 
-      // Create a new chat for this ticket
-      const newChat = await chatModel.create({
-        organizationId,
-        userId,
-        status: "active",
-      });
-
-      // Create ticket with validated fields
+      // Create ticket linked to chat
       const newTicket = await ticketModel.create({
         userId,
         organizationId,
-        chatId: newChat._id,
-        title: title,
-        description: description,
-        status: status,
-        priority: priority,
+        chatId: targetChatId,
+        title,
+        description,
+        status,
+        priority,
+        assignedTo: null,
       });
 
-      // Save the user's original question as a message
-      await messageModel.create({
-        chatId: newChat._id,
-        sender: "user",
-        content: question,
-      });
-
-      // Optional: save a system message indicating ticket creation
-      await messageModel.create({
-        chatId: newChat._id,
-        sender: "ai",
-        content: `I've created a ticket (#${newTicket._id}) for you. An agent will respond soon.`,
-      });
+      const ticketMessage = `I've created a ticket (#${newTicket._id}) for you. An agent will respond soon.`;
+      await saveAiMessage(targetChatId, ticketMessage);
 
       return res.status(200).json({
         status: true,
-        message: "Ticket created automatically",
+        answer: ticketMessage,
         ticketId: newTicket._id,
-        answer:
-          "I couldn't answer your question. I've created a support ticket for you. An agent will get back to you shortly.",
+        chatId: targetChatId,
       });
     }
 
-    // Normal AI answer (no ticket creation)
-    // Save the conversation to an existing chat? You'll need chatId in request.
-    // For simplicity, just return the answer.
-    res.status(200).json({ status: true, answer: aiResponseText });
+    // CASE: Normal AI answer – save messages if chat exists or create a new chat
+    let targetChatId = chatId;
+    if (!targetChatId) {
+      const newChat = await chatModel.create({ organizationId, userId, status: "active" });
+      targetChatId = newChat._id;
+    }
+
+    await saveUserMessage(targetChatId);
+    await saveAiMessage(targetChatId, aiReply);
+
+    return res.status(200).json({
+      status: true,
+      answer: aiReply,
+      chatId: targetChatId,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      status: false,
-      message: `Error processing AI response: ${error.message}`,
-    });
+    res.status(500).json({ status: false, message: `Error: ${error.message}` });
   }
 }
 
