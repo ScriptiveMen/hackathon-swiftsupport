@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import Loader from "../common/Loader.jsx";
+import { useSearch } from "../../context/SearchContext.jsx";
+import toast from "react-hot-toast";
+import { useSocket } from "../../context/SocketContext.jsx";
 
 const PRIORITIES = ["All", "Low", "Medium", "High", "Urgent"];
 const STATUSES = ["All", "Open", "In Progress", "Resolved", "Closed"];
@@ -76,10 +79,10 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
             
             <p style={{ margin:"0 0 4px", fontSize:"11px", fontWeight:700, color:"#9ab0be", textTransform:"uppercase", letterSpacing:"0.5px" }}>Customer</p>
             <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-              <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(entry.userId?.name || "Customer"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(entry.userId?.name || "Customer")}</span>
+              <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(entry.customerId?.name || "Customer"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(entry.customerId?.name || "Customer")}</span>
               </div>
-              <p style={{ margin:0, fontSize:"13px", color:"#1a3a4a", fontWeight: 500 }}>{entry.userId?.name || "Customer"}</p>
+              <p style={{ margin:0, fontSize:"13px", color:"#1a3a4a", fontWeight: 500 }}>{entry.customerId?.name || "Customer"}</p>
             </div>
           </div>
 
@@ -108,10 +111,21 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
         </div>
 
         {/* Footer */}
-        <div style={{ padding:"16px 24px", borderTop:"1px solid #e2eef8", display:"flex", gap:"10px" }}>
-          <button onClick={onClose} style={{ flex:1, padding:"10px", borderRadius:"10px", border:"1.5px solid #e2eef8", background:"#fff", color:"#5a7a8a", fontSize:"13px", fontWeight:600, cursor:"pointer" }}>Cancel</button>
-          <button onClick={handleSave} style={{ flex:2, padding:"10px", borderRadius:"10px", border:"none", background:"linear-gradient(90deg,#04b8ff,#0072c6)", color:"#fff", fontSize:"13px", fontWeight:700, cursor:"pointer", boxShadow:"0 4px 12px rgba(0,114,198,0.3)" }}>
-            Save Changes
+        <div style={{ padding:"16px 24px", borderTop:"1px solid #e2eef8", display:"flex", flexDirection: "column", gap:"10px" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={onClose} style={{ flex:1, padding:"10px", borderRadius:"10px", border:"1.5px solid #e2eef8", background:"#fff", color:"#5a7a8a", fontSize:"13px", fontWeight:600, cursor:"pointer" }}>Cancel</button>
+            <button onClick={handleSave} style={{ flex:2, padding:"10px", borderRadius:"10px", border:"none", background:"linear-gradient(90deg,#04b8ff,#0072c6)", color:"#fff", fontSize:"13px", fontWeight:700, cursor:"pointer", boxShadow:"0 4px 12px rgba(0,114,198,0.3)" }}>
+              Save Changes
+            </button>
+          </div>
+          <button 
+            onClick={() => {
+              onSave({ ...form, action: "delete" });
+              onClose();
+            }} 
+            style={{ width: "100%", padding:"10px", borderRadius:"10px", border:"1.5px solid #fee2e2", background:"#fff", color:"#ef4444", fontSize:"12px", fontWeight:600, cursor:"pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+          >
+            <Trash2 size={14} /> Delete Ticket
           </button>
         </div>
       </div>
@@ -121,28 +135,51 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
 
 /* ── Main Component ── */
 export default function Tickets() {
+  const { searchTerm } = useSearch();
   const [tickets, setTickets] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Data Fetching
+  const { socket } = useSocket();
+
+  const fetchData = async () => {
+    // We can do background refresh here
+    try {
+      const ticketRes = await axiosClient.get("/tickets/getAllTickets");
+      setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
+      
+      const agentRes = await axiosClient.get("/auth/agents");
+      setAgents(agentRes.data.agents || agentRes.data.data || agentRes.data);
+    } catch (err) {
+      console.error("Failed to fetch tickets/agents:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const ticketRes = await axiosClient.get("/tickets/getAllTickets");
-        setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
-        
-        const agentRes = await axiosClient.get("/auth/agents");
-        setAgents(agentRes.data.agents || agentRes.data.data || agentRes.data);
-      } catch (err) {
-        console.error("Failed to fetch tickets/agents:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    setLoading(true);
+    fetchData().finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("ticket_deleted", (data) => {
+      setTickets(prev => {
+        const list = Array.isArray(prev) ? prev : (prev.tickets || prev.data || []);
+        return list.filter(t => t._id !== data.ticketId);
+      });
+    });
+
+    socket.on("ticket_created", () => fetchData());
+    socket.on("ticket_updated", () => fetchData());
+
+    return () => {
+      socket.off("ticket_deleted");
+      socket.off("ticket_created");
+      socket.off("ticket_updated");
+    };
+  }, [socket]);
 
 
   const [search, setSearch]         = useState("");
@@ -155,6 +192,13 @@ export default function Tickets() {
   const filterRef = useRef(null);
 
   useEffect(() => {
+    if (searchTerm !== undefined) {
+      setSearch(searchTerm);
+      setPage(1);
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
     const h = e => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
@@ -165,7 +209,7 @@ export default function Tickets() {
 
   const filtered = ticketsList.filter(r => {
     const q = search.toLowerCase();
-    const customerName = r.userId?.name?.toLowerCase() || "";
+    const customerName = r.customerId?.name?.toLowerCase() || "";
     const title = r.title?.toLowerCase() || "";
     const mQ = r._id?.toLowerCase().includes(q) || title.includes(q) || customerName.includes(q);
     const mP = priorityFilter === "All" || r.priority === priorityFilter;
@@ -178,21 +222,27 @@ export default function Tickets() {
 
   const handleSave = async (form) => {
     if (editEntry) {
+      const loadingToast = toast.loading(form.action === "delete" ? "Deleting ticket..." : "Updating ticket...");
       try {
-        if (form.status !== editEntry.status) {
-          await axiosClient.put(`/tickets/updateTicketStatus/${editEntry._id}`, { status: form.status });
-        }
-        if (form.assignedTo !== (editEntry.assignedTo?._id || editEntry.assignedTo || "Unassigned")) {
-          const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
-          if (agentId) {
+        if (form.action === "delete") {
+          await axiosClient.delete(`/tickets/deleteTicket/${editEntry._id}`);
+          toast.success("Ticket deleted successfully", { id: loadingToast });
+        } else {
+          if (form.status !== editEntry.status) {
+            await axiosClient.put(`/tickets/ticketStatusUpdate/${editEntry._id}`, { status: form.status });
+          }
+          if (form.assignedTo !== (editEntry.assignedTo?._id || editEntry.assignedTo || "Unassigned")) {
+            const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
             await axiosClient.put(`/tickets/ticketAssginedToAgent/${editEntry._id}`, { agentId });
           }
+          toast.success("Ticket updated successfully", { id: loadingToast });
         }
         // Refresh
         const { data } = await axiosClient.get("/tickets/getAllTickets");
         setTickets(data.tickets || data.data || data);
       } catch (err) {
-        console.error("Failed to update ticket:", err);
+        console.error("Failed to update/delete ticket:", err);
+        toast.error("Operation failed. Please try again.", { id: loadingToast });
       }
     }
   };
@@ -209,7 +259,7 @@ export default function Tickets() {
     const rows = filtered.map(r => [
       r._id, 
       r.title, 
-      r.userId?.name || "Customer", 
+      r.customerId?.name || "Customer", 
       r.priority, 
       r.status, 
       agents?.find(a => a._id === r.assignedTo)?.name || "Unassigned", 
@@ -311,7 +361,7 @@ export default function Tickets() {
               const pc = PRIORITY_COLORS[row.priority] || { bg:"#f0f7ff", color:"#0072c6" };
               const sc = STATUS_COLORS[row.status] || STATUS_COLORS["Open"];
               const StatusIcon = sc.icon;
-              const customerName = row.userId?.name || "Customer";
+              const customerName = row.customerId?.name || "Customer";
               const agentName = agents?.find(a => a._id === row.assignedTo)?.name || "Unassigned";
               
               return (

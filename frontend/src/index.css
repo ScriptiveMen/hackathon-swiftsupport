@@ -57,6 +57,14 @@ button, a {
 .blob-drift-2        { animation: blob-drift-2 11s ease-in-out infinite; }
 .animate-fade-in-up  { animation: fade-in-up 0.6s ease-out both; }
 .animate-float       { animation: float 4s ease-in-out infinite; }
+.animate-popup-in    { animation: popup-in 0.3s ease-out forwards; }
+.animate-popup-out   { animation: popup-out 0.3s ease-in forwards; }
+
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
 
 @font-face {
   font-family: "Flexing Bold";

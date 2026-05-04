@@ -5,8 +5,7 @@ import {
   Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X,
   ChevronLeft, ChevronRight, CheckCircle, Clock, BookOpen, Download,
 } from "lucide-react";
-
-
+import { useSearch } from "../../context/SearchContext.jsx";
 
 
 const CATEGORIES = ["All", "Login & Security", "Billing", "User Management", "API & Dev", "Integrations", "Export", "AI & Bot", "Customization", "Analytics"];
@@ -282,8 +281,38 @@ const menuBtnStyle = (color) => ({
   fontFamily: "'Inter', sans-serif",
 });
 
+/* ── Delete Confirmation Modal ───────────────────────────────────── */
+const DeleteConfirmModal = ({ open, onClose, onConfirm }) => {
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} />
+      <div style={{ position: "relative", background: "#fff", width: "100%", maxWidth: "400px", borderRadius: "16px", boxShadow: "0 20px 50px rgba(0,0,0,0.2)", overflow: "hidden", animation: "modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+        <div style={{ padding: "24px", textAlign: "center" }}>
+          <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "#fff1f2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Trash2 size={24} color="#e11d48" />
+          </div>
+          <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#1a3a4a" }}>Delete FAQ?</h3>
+          <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#5a7a8a", lineHeight: 1.5 }}>
+            Are you sure you want to delete this FAQ entry? This action cannot be undone.
+          </p>
+        </div>
+        <div style={{ padding: "16px 24px", background: "#f8fbff", display: "flex", gap: "12px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "1.5px solid #e2eef8", background: "#fff", color: "#5a7a8a", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#e11d48", color: "#fff", fontSize: "14px", fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 12px rgba(225,29,72,0.3)" }}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── Main Knowledge Base Component ───────────────────────────────── */
 const AgentKnowledgeBase = () => {
+  const { searchTerm: globalSearchTerm } = useSearch();
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -312,9 +341,18 @@ const AgentKnowledgeBase = () => {
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const [editEntry, setEditEntry] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef(null);
+
+  useEffect(() => {
+    if (globalSearchTerm !== undefined) {
+      setSearch(globalSearchTerm);
+      setPage(1);
+    }
+  }, [globalSearchTerm]);
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
@@ -368,16 +406,23 @@ const AgentKnowledgeBase = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
-      await axiosClient.delete(`/knowledge/faq/${id}`);
+      await axiosClient.delete(`/knowledge/faq/${itemToDelete}`);
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
       // Refresh
       const { data } = await axiosClient.get("/knowledge/faq");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       console.error("Failed to delete FAQ:", err);
     }
+  };
+
+  const handleDelete = (id) => {
+    setItemToDelete(id);
+    setDeleteConfirmOpen(true);
   };
 
 
@@ -410,12 +455,11 @@ const AgentKnowledgeBase = () => {
       <div style={{ padding: "24px", minHeight: "100%", background: "#f0f7ff", fontFamily: "'Inter', sans-serif" }}>
 
         {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#1a3a4a" }}>AI Training Dataset</h2>
-            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#5a7a8a" }}>Manage structured FAQ pairs to improve bot response accuracy.</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", gap: "16px" }}>
+          <div style={{ minWidth: "fit-content" }}>
+            <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#1a3a4a", letterSpacing: "-0.5px" }}>AI Training Dataset</h2>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginLeft: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "nowrap", flex: 1, justifyContent: "flex-end" }}>
             {/* Search */}
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: "11px", top: "50%", transform: "translateY(-50%)", color: "#9ab0be" }} />
@@ -502,7 +546,6 @@ const AgentKnowledgeBase = () => {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                   <p style={{ margin: 0, fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
-                  <span style={{ fontSize: "10px", background: "#f0f7ff", color: "#0072c6", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #dceefa", whiteSpace: "nowrap" }}>Global</span>
                 </div>
                 <p style={{ margin: 0, fontSize: "11.5px", color: "#9ab0be", fontStyle: "italic" }}>Variant: {row.variant}</p>
               </div>
@@ -557,6 +600,13 @@ const AgentKnowledgeBase = () => {
         onClose={() => setPanelOpen(false)}
         entry={editEntry}
         onSave={handleSave}
+      />
+
+      {/* ── Delete Confirmation Modal ── */}
+      <DeleteConfirmModal
+        open={deleteConfirmOpen}
+        onClose={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }}
+        onConfirm={confirmDelete}
       />
     </>
   );

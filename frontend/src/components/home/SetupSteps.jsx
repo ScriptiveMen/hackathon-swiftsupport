@@ -95,7 +95,7 @@ export default function SetupSteps() {
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center gap-2 flex flex-col items-center justify-center mb-14">
           <ScrollFade delay={0} blur={4}>
             <div
               className="inline-flex select-none items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-5"

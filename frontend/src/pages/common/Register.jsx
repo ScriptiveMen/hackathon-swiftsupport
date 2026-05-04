@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosClient from "../../api/axiosClient";
+import axiosClient from "../../api/axiosClient.js";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -8,107 +8,78 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    organizationName: "",
   });
 
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
-
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    if (fieldErrors[e.target.name]) {
+      setFieldErrors({ ...fieldErrors, [e.target.name]: "" });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+    if (!form.organizationName)
+      newErrors.organizationName = "Organization Name is required";
+    if (!form.name) newErrors.name = "Full Name is required";
+    if (!form.email) newErrors.email = "Email is required";
+    if (!form.password) newErrors.password = "Password is required";
+    if (form.password && form.password !== form.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    setFieldErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
     setError("");
     setSuccess(false);
-
-    if (!form.name || !form.email || !form.password) {
-      return setError("All fields are required");
-    }
-
-    if (form.password !== form.confirmPassword) {
-      return setError("Passwords do not match");
-    }
 
     try {
       setLoading(true);
 
-      const res = await axiosClient.post("/register", form);
+      const res = await axiosClient.post("/auth/registerAdmin", form);
 
       setSuccess(true);
       setForm({
         name: "",
         email: "",
         password: "",
-        confirmPassword: ""
+        confirmPassword: "",
+        organizationName: "",
       });
-
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Something went wrong");
+      if (err.response?.data?.errors) {
+        const backendErrors = {};
+        err.response.data.errors.forEach((errItem) => {
+          backendErrors[errItem.path] = errItem.msg;
+        });
+        setFieldErrors(backendErrors);
+      } else {
+        setError(
+          err.response?.data?.message || err.message || "Something went wrong",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  /* ── shared styles ── */
-  const inp = {
-    width: "100%", padding: "10px 12px 10px 38px", border: "1.5px solid rgba(11,186,255,0.3)",
-    borderRadius: "10px", fontSize: "13.5px", color: "#1e3a4a", background: "rgba(255,255,255,0.9)",
-    outline: "none", boxSizing: "border-box", fontFamily: "'Inter',sans-serif", transition: "border-color 0.2s, box-shadow 0.2s",
-  };
-  const focus = (e) => { e.target.style.borderColor = "#04b8ff"; e.target.style.boxShadow = "0 0 0 3px rgba(4,184,255,0.12)"; };
-  const blur  = (e) => { e.target.style.borderColor = "rgba(11,186,255,0.3)"; e.target.style.boxShadow = "none"; };
-  const lbl   = { fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.1em", color: "#4a6070", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-
-  const Icon = ({ d, viewBox = "0 0 24 24" }) => (
-    <svg width="15" height="15" viewBox={viewBox} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {typeof d === "string" ? <path d={d} /> : d}
-    </svg>
-  );
-
-  const Field = ({ label, icon, error, children }) => (
-    <div style={{ marginBottom: "14px" }}>
-      <label style={lbl}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#7aaabb", display: "flex" }}>{icon}</span>
-        {children}
-      </div>
-      {error && <span style={{ display:"block", fontSize:"11px", color:"#ef4444", marginTop:"4px", fontWeight:500 }}>{error}</span>}
-    </div>
-  );
-
-  if (success) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(145deg,#e8f6ff 0%,#cceeff 40%,#a8e0ff 100%)", fontFamily: "'Inter',sans-serif" }}>
-      <div style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", borderRadius: "20px", padding: "48px 40px", textAlign: "center", maxWidth: "400px", width: "90%", boxShadow: "0 8px 48px rgba(4,184,255,0.18)", border: "1px solid rgba(11,186,255,0.25)" }}>
-        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#04b8ff,#0072c6)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 6px 20px rgba(4,184,255,0.4)" }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-        </div>
-        <h2 style={{ margin: "0 0 10px", fontSize: "22px", fontWeight: 800, color: "#0a2a3a" }}>You're in!</h2>
-        <p style={{ margin: "0 0 28px", fontSize: "13.5px", color: "#4a6070", lineHeight: 1.6 }}>
-          Your account has been created. The admin team can now see your profile in the Customers panel.
-        </p>
-        <button onClick={() => navigate("/login")} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "none", background: "linear-gradient(90deg,#04b8ff,#0072c6)", color: "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 18px rgba(4,184,255,0.35)" }}>
-          Go to Login
-        </button>
-      </div>
-    </div>
-  );
-
-
-
-
   /* ── reusable styles ──────────────────────────────────── */
   const inputCls =
-    "w-full bg-white border border-[#0bbaff]/30 rounded-lg pl-10 pr-3 py-2.5 " +
-    "text-[13.5px] text-[#1e3a4a] placeholder-[#9bbccc] outline-none " +
-    "focus:border-[#04b8ff] focus:ring-2 focus:ring-[#04b8ff]/15 transition shadow-sm";
+    "w-full bg-white border border-indigo-200 rounded-lg pl-10 pr-3 py-2.5 " +
+    "text-[13.5px] text-gray-800 placeholder-gray-400 outline-none " +
+    "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition shadow-sm";
 
   const labelCls =
-    "text-[10.5px] font-semibold tracking-widest text-[#4a6070] uppercase";
+    "text-[10.5px] font-semibold tracking-widest text-indigo-800 uppercase";
 
   /* ── icons ────────────────────────────────────────────── */
   const UserIcon = () => (
@@ -160,80 +131,244 @@ export default function Register() {
     </svg>
   );
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6">Create Account</h2>
-
-        {error && (
-          <p className="bg-red-100 text-red-600 p-2 rounded mb-3 text-sm">
-            {error}
+  if (success)
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center font-[Inter,sans-serif]"
+        style={{
+          background: "linear-gradient(145deg, #e0e7ff 0%, #c7d2fe 100%)",
+        }}
+      >
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-10 text-center max-w-[400px] w-[90%] shadow-2xl border border-white">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-indigo-500/40">
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <h2 className="m-0 mb-2.5 text-[22px] font-[800] text-indigo-950">
+            You're in!
+          </h2>
+          <p className="m-0 mb-7 text-[13.5px] text-indigo-700 leading-[1.6]">
+            Your admin account and organization have been created.
           </p>
-        )}
-
-        {success && (
-          <p className="bg-green-100 text-green-600 p-2 rounded mb-3 text-sm">
-            {success}
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={form.name}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm Password"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition duration-200"
+            onClick={() => navigate("/admin-login")}
+            className="w-full p-3 rounded-xl border-none bg-gradient-to-r from-indigo-600 to-indigo-800 text-white text-[14px] font-[700] cursor-pointer shadow-lg shadow-indigo-500/30 hover:scale-[1.02] transition-transform"
           >
-            {loading ? "Creating..." : "Sign Up"}
+            Go to Login
           </button>
-        </form>
-
-        <p className="text-sm text-center mt-4 text-gray-600">
-          Already have an account?{" "}
-          <span 
-            onClick={() => navigate("/login")}
-            className="text-indigo-600 cursor-pointer hover:underline"
-          >
-            Login
-          </span>
-        </p>
+        </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    );
+
+  return (
+    <div
+      className="min-h-screen w-full flex items-center justify-center relative overflow-hidden font-[Inter,sans-serif]"
+      style={{
+        background: "linear-gradient(145deg, #e0e7ff 0%, #c7d2fe 100%)",
+      }}
+    >
+      {/* ── Ambient blobs ── */}
+      <div
+        className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: "#4f46e5", opacity: 0.15, filter: "blur(120px)" }}
+      />
+      <div
+        className="absolute bottom-[-120px] right-[-80px] w-[420px] h-[420px] rounded-full pointer-events-none"
+        style={{ background: "#818cf8", opacity: 0.2, filter: "blur(100px)" }}
+      />
+
+      <div className="relative z-10 flex flex-col items-center w-full max-w-[420px] px-4 py-8">
+        {/* ── Header ── */}
+        <div className="flex flex-col items-center mb-8">
+          <h1 className="text-[32px] font-[900] leading-1 text-indigo-950 tracking-tight mb-2">
+            Admin Setup
+          </h1>
+          <p className="text-[13px] text-indigo-700 text-center">
+            Create an organization and admin account
+          </p>
+        </div>
+
+        {/* ── Card ── */}
+        <div className="w-full bg-white/90 backdrop-blur-xl border border-white rounded-2xl overflow-hidden shadow-2xl">
+          <div className="p-6 border-b border-indigo-50 bg-indigo-50/50">
+            <h2 className="text-lg font-bold text-indigo-900">Sign Up</h2>
+            <p className="text-xs text-indigo-600 mt-1">
+              Fill in the details below to get started
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mx-6 mt-4 px-3.5 py-2.5 bg-red-50 border border-red-200 rounded-lg text-[12.5px] text-red-500">
+              {error}
+            </div>
+          )}
+
+          {/* ── SIGNUP FORM ── */}
+          <form
+            onSubmit={handleSubmit}
+            className="px-6 py-6 flex flex-col gap-5"
+          >
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Organization Name</label>
+              <div className="relative flex items-center">
+                <span
+                  className={`absolute left-3 ${fieldErrors.organizationName ? "text-red-400" : "text-indigo-400"}`}
+                >
+                  <BriefIcon />
+                </span>
+                <input
+                  className={`${inputCls} ${fieldErrors.organizationName ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""}`}
+                  type="text"
+                  name="organizationName"
+                  placeholder="e.g. Acme Corp"
+                  value={form.organizationName}
+                  onChange={handleChange}
+                />
+              </div>
+              {fieldErrors.organizationName && (
+                <span className="text-xs text-red-500 font-medium">
+                  {fieldErrors.organizationName}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Full Name</label>
+              <div className="relative flex items-center">
+                <span
+                  className={`absolute left-3 ${fieldErrors.name ? "text-red-400" : "text-indigo-400"}`}
+                >
+                  <UserIcon />
+                </span>
+                <input
+                  className={`${inputCls} ${fieldErrors.name ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""}`}
+                  type="text"
+                  name="name"
+                  placeholder="John Doe"
+                  value={form.name}
+                  onChange={handleChange}
+                />
+              </div>
+              {fieldErrors.name && (
+                <span className="text-xs text-red-500 font-medium">
+                  {fieldErrors.name}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Email Address</label>
+              <div className="relative flex items-center">
+                <span
+                  className={`absolute left-3 ${fieldErrors.email ? "text-red-400" : "text-indigo-400"}`}
+                >
+                  <MailIcon />
+                </span>
+                <input
+                  className={`${inputCls} ${fieldErrors.email ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""}`}
+                  type="email"
+                  name="email"
+                  placeholder="admin@swiftsupport.com"
+                  value={form.email}
+                  onChange={handleChange}
+                />
+              </div>
+              {fieldErrors.email && (
+                <span className="text-xs text-red-500 font-medium">
+                  {fieldErrors.email}
+                </span>
+              )}
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className={labelCls}>Password</label>
+                <div className="relative flex items-center">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.password ? "text-red-400" : "text-indigo-400"}`}
+                  >
+                    <LockIcon />
+                  </span>
+                  <input
+                    className={`${inputCls} ${fieldErrors.password ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""}`}
+                    type="password"
+                    name="password"
+                    placeholder="Enter password"
+                    value={form.password}
+                    onChange={handleChange}
+                  />
+                </div>
+                {fieldErrors.password && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.password}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label className={labelCls}>Confirm</label>
+                <div className="relative flex items-center">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.confirmPassword ? "text-red-400" : "text-indigo-400"}`}
+                  >
+                    <LockIcon />
+                  </span>
+                  <input
+                    className={`${inputCls} ${fieldErrors.confirmPassword ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""}`}
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                  />
+                </div>
+                {fieldErrors.confirmPassword && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.confirmPassword}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3 rounded-lg font-bold text-[14px] text-white flex items-center justify-center gap-2 transition-all
+                         bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5
+                         disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin-slow" />
+                  Creating Account...
+                </>
+              ) : (
+                "Complete Setup"
+              )}
+            </button>
+          </form>
+
+          {/* ── Card footer ── */}
+          <div className="px-6 py-4 bg-gray-50 flex items-center justify-center text-xs text-gray-500 border-t border-gray-100">
+            <span className="mr-1">Already registered?</span>
+            <span
+              onClick={() => navigate("/admin-login")}
+              className="text-indigo-600 font-semibold cursor-pointer hover:underline"
+            >
+              Sign In
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

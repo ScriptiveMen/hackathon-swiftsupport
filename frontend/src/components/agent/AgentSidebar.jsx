@@ -15,9 +15,9 @@ const navItems = [
   { label: "Dashboard",      Icon: LayoutDashboard, path: "/agent" },
   { label: "Live Chat",      Icon: MessageSquare,   path: "/agent/chat" },
   { label: "Tickets",        Icon: Ticket,          path: "/agent/tickets" },
-  { label: "Knowledge Base", Icon: BookOpen,        path: "/agent/knowledge-base" },
+  { label: "FAQ",            Icon: BookOpen,        path: "/agent/faq" },
   { label: "Docs",           Icon: FileText,        path: "/agent/docs" },
-  { label: "Settings",       Icon: Settings,        path: "settings" },
+  { label: "Settings",       Icon: Settings,        path: "/agent/settings" },
 ];
 
 const AgentSidebar = ({ sidebarOpen }) => {
@@ -58,7 +58,7 @@ const AgentSidebar = ({ sidebarOpen }) => {
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* Logo — same 64px height as top header so borders align */}
+      {/* Logo */}
       <div
         style={{
           padding: "0 20px",
@@ -104,10 +104,10 @@ const AgentSidebar = ({ sidebarOpen }) => {
             <button
               key={label}
               onClick={() => {
-                if (path === "settings") {
-                  setShowPopup(true);
+                if (label === "Settings") {
+                   setShowPopup(true);
                 } else {
-                  navigate(path, { replace: true });
+                   navigate(path, { replace: true });
                 }
               }}
               style={{
@@ -128,6 +128,7 @@ const AgentSidebar = ({ sidebarOpen }) => {
                 marginBottom: "2px",
                 transition: "all 0.2s",
                 fontFamily: "'Inter', sans-serif",
+                textAlign: "left"
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.background = "#f0f7ff";
@@ -143,7 +144,7 @@ const AgentSidebar = ({ sidebarOpen }) => {
         })}
       </nav>
 
-      {/* Quick Help card — same as Admin's Quick Onboarding card */}
+      {/* Quick Help card */}
       <div style={{ padding: "12px" }}>
         <div
           style={{
@@ -194,7 +195,7 @@ const AgentSidebar = ({ sidebarOpen }) => {
         </div>
       </div>
 
-      {/* Settings Popup — identical to Admin */}
+      {/* Custom Popup */}
       {showPopup && (
         <div
           className={isClosing ? "animate-popup-out" : "animate-popup-in"}

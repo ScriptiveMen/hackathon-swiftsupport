@@ -3,8 +3,11 @@ import axiosClient from "../../api/axiosClient";
 import Loader from "../common/Loader.jsx";
 import {
   Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X, ChevronLeft,
-  ChevronRight, CheckCircle, Clock, Tag, BookOpen, Download, AlertCircle,
+  ChevronRight, CheckCircle, Clock, Tag, BookOpen, Download, AlertCircle, Upload, FileText, Trash,
 } from "lucide-react";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import { useSearch } from "../../context/SearchContext.jsx";
 
 
 const Toast = ({ show, message, type = "success", onClose }) => {
@@ -78,6 +81,260 @@ const StatusBadge = ({ status }) => (
     {status}
   </span>
 );
+
+/* ── Bulk Upload Modal ─────────────────────────────────────────── */
+const BulkUploadModal = ({ open, onClose, onUpload, showToast }) => {
+  const [fileData, setFileData] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const VALID_CATEGORIES = [
+    "Login & Security", "Billing", "User Management", "API & Dev",
+    "Integrations", "Export", "AI & Bot", "Customization", "Analytics"
+  ];
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const processFile = (file) => {
+    const extension = file.name.split(".").pop().toLowerCase();
+    setLoading(true);
+
+    if (extension === "csv") {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          validateAndSet(results.data);
+          setLoading(false);
+        },
+      });
+    } else if (extension === "xlsx" || extension === "xls") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+        validateAndSet(json);
+        setLoading(false);
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (extension === "json") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const json = JSON.parse(e.target.result);
+          validateAndSet(Array.isArray(json) ? json : [json]);
+        } catch (err) {
+          showToast("Invalid JSON file", "error");
+        }
+        setLoading(false);
+      };
+      reader.readAsText(file);
+    } else {
+      showToast("Unsupported file format. Please use CSV, Excel, or JSON.", "error");
+      setLoading(false);
+    }
+  };
+
+  const validateAndSet = (data) => {
+    const validated = data.map((item, index) => {
+      const question = item.Question || item.question || "";
+      const answer = item.Answer || item.answer || "";
+      const variant = item.Variant || item.variant || "";
+      const category = item.Category || item.category || "Billing";
+      const status = item.Status || item.status || "Pending";
+
+      const errors = [];
+      if (!question) errors.push("Missing question");
+      if (!answer) errors.push("Missing answer");
+      if (!VALID_CATEGORIES.includes(category)) errors.push("Invalid category");
+
+      return {
+        id: index,
+        question,
+        answer,
+        variant,
+        category,
+        status,
+        errors,
+      };
+    });
+    setFileData(validated);
+  };
+
+  const removeRow = (id) => {
+    setFileData(prev => prev.filter(row => row.id !== id));
+  };
+
+  const handleFinalUpload = () => {
+    const validRows = fileData.filter(row => row.errors.length === 0);
+    if (validRows.length === 0) {
+      showToast("No valid rows to upload.", "error");
+      return;
+    }
+    onUpload(validRows);
+    setFileData([]);
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} />
+      <div style={{ position: "relative", background: "#fff", width: "100%", maxWidth: "900px", maxHeight: "90vh", borderRadius: "20px", boxShadow: "0 20px 50px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", overflow: "hidden", animation: "modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+        
+        {/* Header */}
+        <div style={{ padding: "24px", borderBottom: "1px solid #f0f7ff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#1a3a4a" }}>Bulk Upload FAQs</h3>
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#5a7a8a" }}>Upload CSV, Excel, or JSON files to import multiple entries.</p>
+          </div>
+          <button onClick={onClose} style={{ border: "none", background: "#f0f7ff", borderRadius: "10px", padding: "8px", cursor: "pointer", color: "#5a7a8a" }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+          {fileData.length === 0 ? (
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current.click()}
+              style={{
+                height: "300px", border: "2px dashed", borderColor: dragActive ? "#04b8ff" : "#e2eef8",
+                borderRadius: "16px", background: dragActive ? "#f0fbff" : "#f8fbff",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "all 0.2s"
+              }}
+            >
+              <input type="file" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} style={{ display: "none" }} accept=".csv,.xlsx,.xls,.json" />
+              <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(0,114,198,0.1)", marginBottom: "16px" }}>
+                <Upload size={28} color="#04b8ff" />
+              </div>
+              <p style={{ margin: 0, fontSize: "16px", fontWeight: 600, color: "#1a3a4a" }}>Drop your file here or click to browse</p>
+              <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#5a7a8a" }}>Supports CSV, XLSX, XLS, and JSON</p>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <span style={{ fontSize: "14px", fontWeight: 600, color: "#5a7a8a" }}>{fileData.length} entries found</span>
+                <button onClick={() => setFileData([])} style={{ border: "none", background: "transparent", color: "#ef4444", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Trash size={14} /> Clear All
+                </button>
+              </div>
+              
+              <div style={{ border: "1px solid #e2eef8", borderRadius: "12px", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                  <thead style={{ background: "#f8fbff", borderBottom: "1px solid #e2eef8" }}>
+                    <tr>
+                      <th style={{ padding: "12px", textAlign: "left", color: "#5a7a8a", fontWeight: 600 }}>Question</th>
+                      <th style={{ padding: "12px", textAlign: "left", color: "#5a7a8a", fontWeight: 600 }}>Answer</th>
+                      <th style={{ padding: "12px", textAlign: "left", color: "#5a7a8a", fontWeight: 600 }}>Status</th>
+                      <th style={{ padding: "12px", width: "40px" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fileData.map((row) => (
+                      <tr key={row.id} style={{ borderBottom: "1px solid #f8fbff", background: row.errors.length > 0 ? "#fff1f2" : "#fff" }}>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ fontWeight: 600, color: "#1a3a4a" }}>{row.question || "(Empty)"}</div>
+                          {row.errors.length > 0 && <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px" }}>{row.errors.join(", ")}</div>}
+                        </td>
+                        <td style={{ padding: "12px", color: "#5a7a8a" }}>
+                          <div style={{ maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.answer || "(Empty)"}</div>
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <span style={{ padding: "3px 8px", borderRadius: "20px", background: "#f0f7ff", color: "#0072c6", fontSize: "11px", fontWeight: 600 }}>{row.category}</span>
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <button onClick={() => removeRow(row.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af" }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid #f0f7ff", display: "flex", gap: "12px" }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "1.5px solid #e2eef8", background: "#fff", color: "#5a7a8a", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleFinalUpload}
+            disabled={fileData.length === 0}
+            style={{ flex: 2, padding: "10px", borderRadius: "10px", border: "none", background: fileData.length === 0 ? "#cbd5e1" : "linear-gradient(90deg,#04b8ff,#0072c6)", color: "#fff", fontSize: "14px", fontWeight: 700, cursor: fileData.length === 0 ? "not-allowed" : "pointer", boxShadow: fileData.length === 0 ? "none" : "0 4px 12px rgba(0,114,198,0.3)" }}
+          >
+            Confirm Upload {fileData.length > 0 && `(${fileData.filter(r => r.errors.length === 0).length} valid)`}
+          </button>
+        </div>
+      </div>
+      <style>{`
+        @keyframes modalScale {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+/* ── Delete Confirmation Modal ───────────────────────────────────── */
+const DeleteConfirmModal = ({ open, onClose, onConfirm }) => {
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} />
+      <div style={{ position: "relative", background: "#fff", width: "100%", maxWidth: "400px", borderRadius: "16px", boxShadow: "0 20px 50px rgba(0,0,0,0.2)", overflow: "hidden", animation: "modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+        <div style={{ padding: "24px", textAlign: "center" }}>
+          <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "#fff1f2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Trash2 size={24} color="#e11d48" />
+          </div>
+          <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#1a3a4a" }}>Delete FAQ?</h3>
+          <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#5a7a8a", lineHeight: 1.5 }}>
+            Are you sure you want to delete this FAQ entry? This action cannot be undone.
+          </p>
+        </div>
+        <div style={{ padding: "16px 24px", background: "#f8fbff", display: "flex", gap: "12px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "1.5px solid #e2eef8", background: "#fff", color: "#5a7a8a", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: "10px", borderRadius: "10px", border: "none", background: "#e11d48", color: "#fff", fontSize: "14px", fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 12px rgba(225,29,72,0.3)" }}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ── Right Panel ─────────────────────────────────────────────────── */
 const RightPanel = ({ open, onClose, entry, onSave }) => {
@@ -182,7 +439,7 @@ const RightPanel = ({ open, onClose, entry, onSave }) => {
               placeholder="Alternative phrasing of the question..."
               style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
               onFocus={e => e.target.style.borderColor = "#0072c6"}
-              onBlur={e => e.target.style.borderColor = "#e2eef8"}
+              onBlur={e => { e.target.style.borderColor = "#e2eef8" }}
             />
             <p style={{ fontSize: "11px", color: "#9ab0be", marginTop: "5px" }}>Helps the AI match more user queries.</p>
           </div>
@@ -342,6 +599,7 @@ const menuBtnStyle = (color) => ({
 
 /* ── Main Component ──────────────────────────────────────────────── */
 const FAQ = () => {
+  const { searchTerm } = useSearch();
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -350,7 +608,7 @@ const FAQ = () => {
     const fetchFaqs = async () => {
       setLoading(true);
       try {
-        const { data } = await axiosClient.get("/knowledge/faq");
+        const { data } = await axiosClient.get("/knowledge/getAllFAQ");
         setFaqs(data.data || data.faqs || data);
       } catch (err) {
         console.error("Failed to fetch FAQs:", err);
@@ -367,6 +625,9 @@ const FAQ = () => {
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const [editEntry, setEditEntry] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -375,6 +636,13 @@ const FAQ = () => {
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
   };
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setSearch(searchTerm);
+      setPage(1);
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
@@ -398,19 +666,35 @@ const FAQ = () => {
   const handleSave = async (form) => {
     try {
       if (editEntry) {
-        await axiosClient.put(`/knowledge/faq/${editEntry._id}`, form);
+        await axiosClient.put(`/knowledge/updateFAQ/${editEntry._id}`, form);
         showToast("Entry updated successfully!");
       } else {
-        await axiosClient.post("/knowledge/faq", form);
+        await axiosClient.post("/knowledge/createFAQ", form);
         showToast("Entry added successfully!");
       }
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       showToast(err.response?.data?.message || "Action failed.", "error");
     }
     setPage(1);
+  };
+
+  const handleBulkUpload = async (faqsToUpload) => {
+    try {
+      setLoading(true);
+      const { data } = await axiosClient.post("/knowledge/bulkUpload", { faqs: faqsToUpload });
+      showToast(data.message || "Bulk upload successful!");
+      
+      // Refresh
+      const refresh = await axiosClient.get("/knowledge/getAllFAQ");
+      setFaqs(refresh.data.data || refresh.data.faqs || refresh.data);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Bulk upload failed.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDuplicate = async (row) => {
@@ -422,27 +706,34 @@ const FAQ = () => {
       status: "Pending"
     };
     try {
-      await axiosClient.post("/knowledge/faq", copyForm);
+      await axiosClient.post("/knowledge/createFAQ", copyForm);
       showToast("Entry duplicated!");
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
-      showToast("Failed to duplicate.", "error");
+      showToast(err.response?.data?.message || "Failed to duplicate.", "error");
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this FAQ?")) return;
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
-      await axiosClient.delete(`/knowledge/faq/${id}`);
+      await axiosClient.delete(`/knowledge/deleteFAQ/${itemToDelete}`);
       showToast("Entry deleted.");
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
-      showToast("Delete failed.", "error");
+      showToast(err.response?.data?.message || "Delete failed.", "error");
     }
+  };
+
+  const handleDelete = (id) => {
+    setItemToDelete(id);
+    setDeleteConfirmOpen(true);
   };
 
   const openAdd = () => {
@@ -484,12 +775,11 @@ const FAQ = () => {
       <div style={{ padding: "24px", minHeight: "100%", background: "#f0f7ff", fontFamily: "'Inter', sans-serif" }}>
 
         {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#1a3a4a" }}>AI Training Dataset</h2>
-            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#5a7a8a" }}>Manage structured FAQ pairs to improve bot response accuracy.</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", gap: "16px" }}>
+          <div style={{ minWidth: "fit-content" }}>
+            <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#1a3a4a", letterSpacing: "-0.5px" }}>AI Training Dataset</h2>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginLeft: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "nowrap", flex: 1, justifyContent: "flex-end" }}>
             {/* Search */}
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: "11px", top: "50%", transform: "translateY(-50%)", color: "#9ab0be" }} />
@@ -534,6 +824,10 @@ const FAQ = () => {
             <button onClick={handleExportCSV} style={{ height:"36px", padding:"0 16px", border:"1.5px solid #e2eef8", borderRadius:"10px", background:"#fff", color:"#5a7a8a", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", transition:"all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background="#f0f7ff"} onMouseLeave={e => e.currentTarget.style.background="#fff"}>
               <Download size={15} /> Export CSV
             </button>
+            {/* Bulk Upload */}
+            <button onClick={() => setBulkModalOpen(true)} style={{ height:"36px", padding:"0 16px", border:"1.5px solid #e2eef8", borderRadius:"10px", background:"#fff", color:"#5a7a8a", fontSize:"13px", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", transition:"all 0.2s" }} onMouseEnter={e => e.currentTarget.style.background="#f0f7ff"} onMouseLeave={e => e.currentTarget.style.background="#fff"}>
+              <Upload size={15} /> Upload Dataset
+            </button>
             {/* New Entry */}
             <button
               onClick={openAdd}
@@ -572,12 +866,14 @@ const FAQ = () => {
               className="faq-row"
               style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 40px", padding: "14px 20px", borderBottom: i < paginated.length - 1 ? "1px solid #f5f9ff" : "none", alignItems: "center", transition: "background 0.15s" }}
             >
-              {/* Question */}
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                  <p style={{ margin: 0, fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
-                </div>
-                <p style={{ margin: 0, fontSize: "11.5px", color: "#9ab0be", fontStyle: "italic" }}>Variant: {row.variant}</p>
+              {/* Question & Variant */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: "12px", overflow: "hidden" }}>
+                <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1a3a4a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60%" }}>
+                  {row.question}
+                </p>
+                <p style={{ margin: 0, fontSize: "12px", color: "#9ab0be", fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontWeight: 500, color: "#cbd5e1", marginRight: "4px" }}>|</span> {row.variant}
+                </p>
               </div>
               {/* Category */}
               <div><CategoryBadge cat={row.category} /></div>
@@ -630,6 +926,21 @@ const FAQ = () => {
         onClose={() => setPanelOpen(false)}
         entry={editEntry}
         onSave={handleSave}
+      />
+
+      {/* ── Bulk Upload Modal ── */}
+      <BulkUploadModal
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        onUpload={handleBulkUpload}
+        showToast={showToast}
+      />
+
+      {/* ── Delete Confirmation Modal ── */}
+      <DeleteConfirmModal
+        open={deleteConfirmOpen}
+        onClose={() => { setDeleteConfirmOpen(false); setItemToDelete(null); }}
+        onConfirm={confirmDelete}
       />
 
       <Toast

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, Search, MessageCircleQuestion } from "lucide-react";
 import axiosClient from "../../api/axiosClient";
 import Loader from "../../components/common/Loader.jsx";
+import { useSearch } from "../../context/SearchContext.jsx";
 
 const AgentFAQ = () => {
+  const { searchTerm: globalSearchTerm } = useSearch();
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,6 +26,12 @@ const AgentFAQ = () => {
     };
     getFaqs();
   }, []);
+
+  useEffect(() => {
+    if (globalSearchTerm !== undefined) {
+      setSearchTerm(globalSearchTerm);
+    }
+  }, [globalSearchTerm]);
 
 
   const toggleItem = (id) => {

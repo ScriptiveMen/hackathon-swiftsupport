@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import gsap from "gsap";
-import { StaggeredMenu } from "./StaggeredMenu";
-
-
+import { StaggeredMenu } from "../home/StaggeredMenu";
 
 const FONT = "'Switzer Extrabold', '  Inter', sans-serif";
 
-export default function HomeNavbar() {
+export default function MainNavbar() {
   const navigate = useNavigate();
 
   // refs
@@ -16,18 +14,35 @@ export default function HomeNavbar() {
   const linksRef = useRef([]);
   const ctaRef = useRef(null);
 
-  const navLinks = ["Features", "Pricing", "Docs", "Blog"];
+  const navLinks = ["Home", "Features", "Docs"];
 
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const isLoggedIn = !!user;
 
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
   const getInitials = (name) => {
-    if (!name) return "U";
-    const parts = name.trim().split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return parts[0][0].toUpperCase();
+    if (!name) return "A";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   // ── Desktop entrance animation ────────────────────────────────────────────
@@ -38,25 +53,25 @@ export default function HomeNavbar() {
       tl.fromTo(
         headerRef.current,
         { y: -60, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.7 }
+        { y: 0, opacity: 1, duration: 0.7 },
       )
         .fromTo(
           logoRef.current,
           { x: -20, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.45 },
-          "-=0.4"
+          "-=0.4",
         )
         .fromTo(
           linksRef.current,
           { y: -10, opacity: 0 },
           { y: 0, opacity: 1, duration: 0.4, stagger: 0.08 },
-          "-=0.3"
+          "-=0.3",
         )
         .fromTo(
           ctaRef.current,
           { x: 20, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.45 },
-          "-=0.35"
+          "-=0.35",
         );
     });
 
@@ -82,15 +97,40 @@ export default function HomeNavbar() {
   };
 
   const handleDashboardRedirect = () => {
-    const role = user.role?.toLowerCase();
+    const role = user?.role?.toLowerCase();
     if (role === "admin") navigate("/admin");
     else if (role === "agent") navigate("/agent");
-    else navigate("/customer/chat");
+    else navigate("/chat");
+  };
+
+  const getMobileMenuItems = () => {
+    const baseItems = navLinks.map((l) => ({ 
+      label: l, 
+      onClick: () => {
+        if (l === "Home") navigate("/");
+        else navigate(`/${l.toLowerCase()}`);
+      } 
+    }));
+
+    if (!isLoggedIn) {
+      baseItems.push({ label: "Login", onClick: () => navigate("/login") });
+    } else {
+      const role = user?.role?.toLowerCase();
+      if (role === "admin" || role === "agent") {
+        baseItems.push({ label: "Dashboard", onClick: handleDashboardRedirect });
+      } else {
+        baseItems.push({ label: "Chat", onClick: () => navigate("/chat") });
+      }
+    }
+    return baseItems;
   };
 
   return (
     <>
-      <header ref={headerRef} className="fixed select-none top-0 left-0 right-0 z-50">
+      <header
+        ref={headerRef}
+        className="fixed select-none top-0 left-0 right-0 z-50"
+      >
         <div className="mx-auto max-w-7xl mt-3 px-4">
           <div
             className="flex items-center justify-between px-5 py-3 rounded-2xl"
@@ -114,7 +154,8 @@ export default function HomeNavbar() {
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
+                  background:
+                    "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
                   boxShadow: "0 3px 12px rgba(4,184,255,0.45)",
                 }}
               >
@@ -124,7 +165,9 @@ export default function HomeNavbar() {
               </div>
               <span
                 className="text-[17px] font-bold text-[#0a2a3a] tracking-tight select-none"
-                style={{ fontFamily: "'Switzer Extrabold', 'Inter', sans-serif" }}
+                style={{
+                  fontFamily: "'Switzer Extrabold', 'Inter', sans-serif",
+                }}
               >
                 SwiftSupport
               </span>
@@ -133,10 +176,13 @@ export default function HomeNavbar() {
             {/* Desktop Nav Links */}
             <nav className="hidden md:flex items-center gap-7">
               {navLinks.map((link, i) => (
-                <a
+                <button
                   key={link}
-                  href="#"
                   ref={(el) => (linksRef.current[i] = el)}
+                  onClick={() => {
+                    if (link === "Home") navigate("/");
+                    else navigate(`/${link.toLowerCase()}`);
+                  }}
                   onMouseEnter={(e) => handleLinkEnter(e.currentTarget)}
                   onMouseLeave={(e) => handleLinkLeave(e.currentTarget)}
                   style={{
@@ -144,17 +190,22 @@ export default function HomeNavbar() {
                     fontSize: "13.5px",
                     fontWeight: 500,
                     color: "#4a6070",
-                    textDecoration: "none",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
                     display: "inline-block",
+                    padding: 0,
                     willChange: "transform",
                   }}
                 >
                   {link}
-                </a>
+                </button>
               ))}
-              {isLoggedIn && (
+              {isLoggedIn && user?.role?.toLowerCase() === "customer" && (
                 <button
-                  onClick={() => navigate("/customer/chat")}
+                  onClick={() => navigate("/chat")}
+                  onMouseEnter={(e) => handleLinkEnter(e.currentTarget)}
+                  onMouseLeave={(e) => handleLinkLeave(e.currentTarget)}
                   style={{
                     fontFamily: FONT,
                     fontSize: "13.5px",
@@ -165,10 +216,31 @@ export default function HomeNavbar() {
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "6px"
+                    gap: "6px",
                   }}
                 >
-                  Chat 
+                  Chat
+                </button>
+              )}
+              {isLoggedIn && (user?.role?.toLowerCase() === "admin" || user?.role?.toLowerCase() === "agent") && (
+                <button
+                  onClick={handleDashboardRedirect}
+                  onMouseEnter={(e) => handleLinkEnter(e.currentTarget)}
+                  onMouseLeave={(e) => handleLinkLeave(e.currentTarget)}
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: "13.5px",
+                    fontWeight: 700,
+                    color: "#04b8ff",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  Dashboard
                 </button>
               )}
             </nav>
@@ -223,7 +295,8 @@ export default function HomeNavbar() {
                       borderRadius: "10px",
                       border: "none",
                       cursor: "pointer",
-                      background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
+                      background:
+                        "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
                       boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
                       willChange: "transform",
                     }}
@@ -248,45 +321,71 @@ export default function HomeNavbar() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={handleDashboardRedirect}
-                  title="Go to Dashboard"
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    border: "none",
-                    cursor: "pointer",
-                    background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
-                    boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontFamily: FONT,
-                    fontSize: "15px",
-                    fontWeight: 700,
-                    willChange: "transform",
-                  }}
-                  onMouseEnter={(e) =>
-                    gsap.to(e.currentTarget, {
-                      y: -2,
-                      boxShadow: "0 6px 20px rgba(4,184,255,0.45)",
-                      duration: 0.2,
-                      ease: "power2.out",
-                    })
-                  }
-                  onMouseLeave={(e) =>
-                    gsap.to(e.currentTarget, {
-                      y: 0,
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    title="Profile Menu"
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      border: "none",
+                      cursor: "pointer",
+                      background:
+                        "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
                       boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
-                      duration: 0.2,
-                      ease: "power2.out",
-                    })
-                  }
-                >
-                  {getInitials(user.name)}
-                </button>
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      fontFamily: FONT,
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      willChange: "transform",
+                      transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow =
+                        "0 6px 20px rgba(4,184,255,0.45)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 16px rgba(4,184,255,0.35)";
+                    }}
+                  >
+                    {getInitials(user?.name)}
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50 transform origin-top-right transition-all duration-200">
+                      <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          {user?.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {user?.email}
+                        </p>
+                      </div>
+                      <div className="p-1.5">
+                        <button
+                          onClick={handleDashboardRedirect}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 font-medium hover:bg-gray-50 hover:text-[#04b8ff] rounded-md transition-colors"
+                        >
+                          {(user?.role?.toLowerCase() === "admin" || user?.role?.toLowerCase() === "agent") ? "Dashboard" : "Chat"}
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-md transition-colors mt-1"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -299,11 +398,8 @@ export default function HomeNavbar() {
                 menuButtonColor="#1e3a4a"
                 openMenuButtonColor="#0a2a3a"
                 accentColor="#04b8ff"
-                colors={['#e8f6ff', '#cceeff', '#ffffff']}
-                items={[
-                  ...navLinks.map((l) => ({ label: l, link: "#" })),
-                  isLoggedIn ? { label: "Dashboard", onClick: handleDashboardRedirect } : { label: "Login", link: "/login" }
-                ]}
+                colors={["#e8f6ff", "#cceeff", "#ffffff"]}
+                items={getMobileMenuItems()}
                 displayItemNumbering={false}
               />
             </div>
