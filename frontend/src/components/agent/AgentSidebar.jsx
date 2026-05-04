@@ -2,28 +2,25 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  UserPlus,
-  Download,
+  MessageSquare,
   Ticket,
   BookOpen,
   Settings,
   FileText,
   Zap,
   HelpCircle,
-  Users,
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", Icon: LayoutDashboard, path: "/admin" },
-  { label: "Agents", Icon: UserPlus, path: "/admin/agents" },
-  { label: "Customers", Icon: Users, path: "/admin/customers" },
-  { label: "Tickets", Icon: Ticket, path: "/admin/tickets" },
-  { label: "FAQ", Icon: BookOpen, path: "/admin/faq" },
-  { label: "Docs", Icon: FileText, path: "/admin/docs" },
-  { label: "Settings", Icon: Settings, path: "settings" },
+  { label: "Dashboard",      Icon: LayoutDashboard, path: "/agent" },
+  { label: "Live Chat",      Icon: MessageSquare,   path: "/agent/chat" },
+  { label: "Tickets",        Icon: Ticket,          path: "/agent/tickets" },
+  { label: "Knowledge Base", Icon: BookOpen,        path: "/agent/knowledge-base" },
+  { label: "Docs",           Icon: FileText,        path: "/agent/docs" },
+  { label: "Settings",       Icon: Settings,        path: "settings" },
 ];
 
-const AdminSidebar = ({ sidebarOpen }) => {
+const AgentSidebar = ({ sidebarOpen }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
@@ -31,11 +28,10 @@ const AdminSidebar = ({ sidebarOpen }) => {
 
   useEffect(() => {
     if (showPopup) {
-      // Start exit animation slightly before it unmounts
-      const closeTimer = setTimeout(() => setIsClosing(true), 2700);
+      const closeTimer  = setTimeout(() => setIsClosing(true), 2700);
       const unmountTimer = setTimeout(() => {
         setShowPopup(false);
-        setIsClosing(false); // reset for next time
+        setIsClosing(false);
       }, 3000);
       return () => {
         clearTimeout(closeTimer);
@@ -59,6 +55,7 @@ const AdminSidebar = ({ sidebarOpen }) => {
         transition: "all 0.3s ease",
         overflow: "hidden",
         zIndex: 10,
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       {/* Logo — same 64px height as top header so borders align */}
@@ -130,6 +127,7 @@ const AdminSidebar = ({ sidebarOpen }) => {
                 cursor: "pointer",
                 marginBottom: "2px",
                 transition: "all 0.2s",
+                fontFamily: "'Inter', sans-serif",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.background = "#f0f7ff";
@@ -145,7 +143,7 @@ const AdminSidebar = ({ sidebarOpen }) => {
         })}
       </nav>
 
-      {/* Quick Onboarding card */}
+      {/* Quick Help card — same as Admin's Quick Onboarding card */}
       <div style={{ padding: "12px" }}>
         <div
           style={{
@@ -171,13 +169,13 @@ const AdminSidebar = ({ sidebarOpen }) => {
             <HelpCircle size={22} color="#fff" />
           </div>
           <p style={{ fontWeight: 700, fontSize: "13px", margin: "0 0 4px" }}>
-            Quick Onboarding
+            Need Help?
           </p>
           <p style={{ fontSize: "11px", opacity: 0.8, margin: "0 0 12px" }}>
-            Add your first support staff member.
+            View docs or contact admin support.
           </p>
           <button
-            onClick={() => navigate("/admin/agents", { replace: true })}
+            onClick={() => navigate("/agent/docs", { replace: true })}
             style={{
               background: "#fff",
               color: "#0072c6",
@@ -188,14 +186,15 @@ const AdminSidebar = ({ sidebarOpen }) => {
               fontSize: "12px",
               cursor: "pointer",
               width: "100%",
+              fontFamily: "'Inter', sans-serif",
             }}
           >
-            Get Started
+            View Docs
           </button>
         </div>
       </div>
 
-      {/* Custom Popup */}
+      {/* Settings Popup — identical to Admin */}
       {showPopup && (
         <div
           className={isClosing ? "animate-popup-out" : "animate-popup-in"}
@@ -241,4 +240,4 @@ const AdminSidebar = ({ sidebarOpen }) => {
   );
 };
 
-export default AdminSidebar;
+export default AgentSidebar;

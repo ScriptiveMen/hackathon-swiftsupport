@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Search, Filter, MoreHorizontal, ArrowUpRight, CheckCircle2, Clock } from "lucide-react";
 
-const dummyTickets = [
+const SEED_TICKETS = [
   { id: "#T-4092", user: "Acme Corp", subject: "API Integration failing on prod", status: "Open", priority: "High", date: "Today, 10:30 AM" },
   { id: "#T-4091", user: "John Smith", subject: "Billing adjustment required", status: "Resolved", priority: "Medium", date: "Yesterday" },
   { id: "#T-4090", user: "Sarah Lee", subject: "Cannot add new agents", status: "Pending", priority: "High", date: "Oct 24, 2023" },
@@ -9,8 +9,17 @@ const dummyTickets = [
   { id: "#T-4088", user: "Mike Johnson", subject: "Need help with custom prompts", status: "Open", priority: "Medium", date: "Oct 20, 2023" },
 ];
 
+// Generate 24 dummy tickets for pagination
+const dummyTickets = Array.from({ length: 24 }).map((_, i) => {
+  const template = SEED_TICKETS[i % SEED_TICKETS.length];
+  return { ...template, id: `#T-${4092 - i}` };
+});
+
+const PAGE_SIZE = 5;
+
 const AgentTicketHistory = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -38,6 +47,20 @@ const AgentTicketHistory = () => {
     }
   };
 
+  const filtered = dummyTickets.filter(r => {
+    const q = searchTerm.toLowerCase();
+    return r.id.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q) || r.user.toLowerCase().includes(q);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  
+  // Prevent page going out of bounds when searching
+  if (page > totalPages && totalPages > 0) {
+    setPage(totalPages);
+  }
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
@@ -53,7 +76,7 @@ const AgentTicketHistory = () => {
               type="text" 
               placeholder="Search tickets..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1f88d9] focus:ring-1 focus:ring-[#1f88d9] transition-all"
             />
           </div>
@@ -79,50 +102,77 @@ const AgentTicketHistory = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {dummyTickets.map((ticket, idx) => (
-                <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-bold text-[#1f88d9] cursor-pointer hover:underline">{ticket.id}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#1f88d9]/10 text-[#1f88d9] flex items-center justify-center font-bold text-xs">
-                        {ticket.user.charAt(0)}
-                      </div>
-                      <span className="text-sm font-semibold text-slate-800">{ticket.user}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-slate-700 font-medium">{ticket.subject}</p>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(ticket.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getPriorityBadge(ticket.priority)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-500 font-medium">{ticket.date}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="text-gray-400 hover:text-[#1f88d9] p-1.5 rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center">
-                      <ArrowUpRight size={18} />
-                    </button>
-                  </td>
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-8 text-center text-sm text-gray-500">No tickets found.</td>
                 </tr>
-              ))}
+              ) : (
+                paginated.map((ticket, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-bold text-[#1f88d9] cursor-pointer hover:underline">{ticket.id}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#1f88d9]/10 text-[#1f88d9] flex items-center justify-center font-bold text-xs">
+                          {ticket.user.charAt(0)}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-800">{ticket.user}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-700 font-medium">{ticket.subject}</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(ticket.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getPriorityBadge(ticket.priority)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-500 font-medium">{ticket.date}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <button className="text-gray-400 hover:text-[#1f88d9] p-1.5 rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center">
+                        <ArrowUpRight size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         
-        {/* Pagination placeholder */}
+        {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-sm text-gray-500">Showing 1 to 5 of 24 results</p>
+          <p className="text-sm text-gray-500">
+            Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} results
+          </p>
           <div className="flex gap-1">
-            <button className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50">Prev</button>
-            <button className="px-3 py-1 border border-[#1f88d9] bg-blue-50 rounded-md text-sm text-[#1f88d9] font-medium">1</button>
-            <button className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-500 hover:bg-gray-50">2</button>
-            <button className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-500 hover:bg-gray-50">Next</button>
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button 
+                key={i}
+                onClick={() => setPage(i + 1)}
+                className={`px-3 py-1 border rounded-md text-sm font-medium ${page === i + 1 ? 'border-[#1f88d9] bg-blue-50 text-[#1f88d9]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>

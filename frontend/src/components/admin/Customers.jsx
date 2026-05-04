@@ -320,7 +320,8 @@ const Customers = () => {
         </div>
 
         {/* Table */}
-        <div style={{ background:"#fff", borderRadius:"16px", boxShadow:"0 2px 16px rgba(0,114,198,0.08)", overflow:"hidden" }}>
+        <div style={{ background:"#fff", borderRadius:"16px", boxShadow:"0 2px 16px rgba(0,114,198,0.08)", overflowX:"auto" }}>
+          <div style={{ minWidth: "850px" }}>
           <div style={{ display:"flex", justifyContent:"flex-end", padding:"14px 20px 0" }}>
             <span style={{ fontSize:"12px", color:"#9ab0be" }}>{filtered.length.toLocaleString()} customers</span>
           </div>
@@ -367,6 +368,7 @@ const Customers = () => {
               );
             })
           }
+          </div>
 
           {/* Pagination */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderTop:"1px solid #f0f7ff" }}>

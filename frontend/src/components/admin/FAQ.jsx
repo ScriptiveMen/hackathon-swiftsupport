@@ -15,22 +15,60 @@ import {
   Tag,
   BookOpen,
   Download,
+  AlertCircle,
 } from "lucide-react";
+
+const Toast = ({ show, message, type = "success", onClose }) => {
+  useEffect(() => {
+    if (show) {
+      const t = setTimeout(onClose, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [show, onClose]);
+
+  if (!show) return null;
+
+  const isError = type === "error";
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "24px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: isError ? "#fff1f2" : "#f0fdf4",
+        color: isError ? "#e11d48" : "#16a34a",
+        padding: "12px 20px",
+        borderRadius: "12px",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        zIndex: 9999,
+        border: `1px solid ${isError ? "#fda4af" : "#bbf7d0"}`,
+        animation: "fadeUp 0.3s ease",
+      }}
+    >
+      {isError ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+      <span style={{ fontSize: "14px", fontWeight: 600 }}>{message}</span>
+    </div>
+  );
+};
 
 /* ── Seed Data ───────────────────────────────────────────────────── */
 const SEED = [
-  { id: 1, question: "How do I reset my account password if I lost access to my email?", variant: "I forgot my password and email, help.", category: "Login & Security", status: "Synced" },
-  { id: 2, question: "What is the refund policy for annual enterprise subscriptions?", variant: "Can I get a refund on yearly plan?", category: "Billing", status: "Synced" },
-  { id: 3, question: "How do I add a new agent to my team workspace?", variant: "Steps to invite a team member.", category: "User Management", status: "Pending" },
-  { id: 4, question: "Are there any rate limits on the REST API for basic tiers?", variant: "API limit for standard plan.", category: "API & Dev", status: "Synced" },
-  { id: 5, question: "Can I integrate SwiftSupport with Slack?", variant: "Slack integration setup guide.", category: "Integrations", status: "Synced" },
-  { id: 6, question: "How do I export my chat history and ticket logs?", variant: "Download all support tickets.", category: "Export", status: "Pending" },
-  { id: 7, question: "What languages does the AI chatbot support?", variant: "Multilingual bot support.", category: "AI & Bot", status: "Synced" },
-  { id: 8, question: "How can I customize the chatbot widget appearance?", variant: "Change bot colors and logo.", category: "Customization", status: "Synced" },
-  { id: 9, question: "Is two-factor authentication available?", variant: "Enable 2FA on my account.", category: "Login & Security", status: "Synced" },
-  { id: 10, question: "How do I upgrade my subscription plan?", variant: "Switch from starter to pro.", category: "Billing", status: "Pending" },
-  { id: 11, question: "Can I white-label the support portal?", variant: "Remove SwiftSupport branding.", category: "Customization", status: "Synced" },
-  { id: 12, question: "What analytics are available in the dashboard?", variant: "View ticket and message metrics.", category: "Analytics", status: "Synced" },
+  { id: 1, question: "How do I reset my account password if I lost access to my email?", variant: "I forgot my password and email, help.", category: "Login & Security", status: "Synced", owner: "admin" },
+  { id: 2, question: "What is the refund policy for annual enterprise subscriptions?", variant: "Can I get a refund on yearly plan?", category: "Billing", status: "Synced", owner: "admin" },
+  { id: 3, question: "How do I add a new agent to my team workspace?", variant: "Steps to invite a team member.", category: "User Management", status: "Pending", owner: "admin" },
+  { id: 4, question: "Are there any rate limits on the REST API for basic tiers?", variant: "API limit for standard plan.", category: "API & Dev", status: "Synced", owner: "admin" },
+  { id: 5, question: "Can I integrate SwiftSupport with Slack?", variant: "Slack integration setup guide.", category: "Integrations", status: "Synced", owner: "admin" },
+  { id: 6, question: "How do I export my chat history and ticket logs?", variant: "Download all support tickets.", category: "Export", status: "Pending", owner: "admin" },
+  { id: 7, question: "What languages does the AI chatbot support?", variant: "Multilingual bot support.", category: "AI & Bot", status: "Synced", owner: "admin" },
+  { id: 8, question: "How can I customize the chatbot widget appearance?", variant: "Change bot colors and logo.", category: "Customization", status: "Synced", owner: "admin" },
+  { id: 9, question: "Is two-factor authentication available?", variant: "Enable 2FA on my account.", category: "Login & Security", status: "Synced", owner: "admin" },
+  { id: 10, question: "How do I upgrade my subscription plan?", variant: "Switch from starter to pro.", category: "Billing", status: "Pending", owner: "admin" },
+  { id: 11, question: "Can I white-label the support portal?", variant: "Remove SwiftSupport branding.", category: "Customization", status: "Synced", owner: "admin" },
+  { id: 12, question: "What analytics are available in the dashboard?", variant: "View ticket and message metrics.", category: "Analytics", status: "Synced", owner: "admin" },
 ];
 
 const CATEGORIES = ["All", "Login & Security", "Billing", "User Management", "API & Dev", "Integrations", "Export", "AI & Bot", "Customization", "Analytics"];
@@ -260,7 +298,7 @@ const RightPanel = ({ open, onClose, entry, onSave }) => {
 };
 
 /* ── Dropdown Menu ───────────────────────────────────────────────── */
-const ActionMenu = ({ id, openId, setOpenId, onEdit, onDuplicate, onDelete }) => {
+const ActionMenu = ({ id, openId, setOpenId, onEdit, onDuplicate, onDelete, openUp }) => {
   const ref = useRef(null);
   const isOpen = openId === id;
 
@@ -281,15 +319,38 @@ const ActionMenu = ({ id, openId, setOpenId, onEdit, onDuplicate, onDelete }) =>
         <MoreVertical size={16} />
       </button>
       {isOpen && (
-        <div style={{ position: "absolute", right: 0, top: "30px", background: "#fff", borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.13)", border: "1px solid #e2eef8", width: "140px", zIndex: 100, overflow: "hidden", animation: "fadeDown 0.15s ease" }}>
-          <button onClick={() => { onEdit(); setOpenId(null); }} style={menuBtnStyle("#1a3a4a")}>
+        <div style={{ position: "absolute", right: 0, top: openUp ? "auto" : "30px", bottom: openUp ? "30px" : "auto", background: "#fff", borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.13)", border: "1px solid #e2eef8", width: "140px", zIndex: 100, overflow: "hidden", animation: "fadeDown 0.15s ease" }}>
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onEdit();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#1a3a4a")}
+          >
             <Edit2 size={13} /> Edit
           </button>
-          <button onClick={() => { onDuplicate(); setOpenId(null); }} style={menuBtnStyle("#1a3a4a")}>
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#1a3a4a")}
+          >
             <Copy size={13} /> Duplicate
           </button>
-          <div style={{ height: "1px", background: "#f0f7ff", margin: "4px 0" }} />
-          <button onClick={() => { onDelete(); setOpenId(null); }} style={menuBtnStyle("#ef4444")}>
+          <div
+            style={{ height: "1px", background: "#f0f7ff", margin: "4px 0" }}
+          />
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onDelete();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#ef4444")}
+          >
             <Trash2 size={13} /> Delete
           </button>
         </div>
@@ -308,7 +369,14 @@ const menuBtnStyle = (color) => ({
 
 /* ── Main FAQ Component ──────────────────────────────────────────── */
 const FAQ = () => {
-  const [data, setData] = useState(SEED);
+  const [data, setData] = useState(() => {
+    try {
+      const local = localStorage.getItem("ss_faqs");
+      return local ? JSON.parse(local) : SEED;
+    } catch (e) {
+      return SEED;
+    }
+  });
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -317,7 +385,12 @@ const FAQ = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const filterRef = useRef(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
@@ -339,18 +412,44 @@ const FAQ = () => {
 
   /* Actions */
   const handleSave = (form) => {
+    let newData;
     if (editEntry) {
-      setData(d => d.map(r => r.id === editEntry.id ? { ...r, ...form } : r));
+      newData = data.map((r) => (r.id === editEntry.id ? { ...r, ...form } : r));
     } else {
-      setData(d => [...d, { ...form, id: Date.now() }]);
+      newData = [...data, { ...form, id: Date.now(), owner: "admin" }];
     }
+    setData(newData);
+    localStorage.setItem("ss_faqs", JSON.stringify(newData));
+    showToast(editEntry ? "Entry updated successfully!" : "Entry added successfully!");
     setPage(1);
   };
-  const handleDuplicate = (row) => setData(d => [...d, { ...row, id: Date.now(), question: row.question + " (copy)" }]);
-  const handleDelete = (id) => setData(d => d.filter(r => r.id !== id));
+  const handleDuplicate = (row) => {
+    const newData = [
+      ...data,
+      { ...row, id: Date.now(), question: row.question + " (copy)", owner: "admin" },
+    ];
+    setData(newData);
+    localStorage.setItem("ss_faqs", JSON.stringify(newData));
+    showToast("Entry duplicated successfully!");
+  };
+  const handleDelete = (id) => {
+    const newData = data.filter((r) => r.id !== id);
+    setData(newData);
+    localStorage.setItem("ss_faqs", JSON.stringify(newData));
+    showToast("Entry deleted successfully!", "error");
+  };
 
-  const openAdd = () => { setEditEntry(null); setPanelOpen(true); };
-  const openEdit = (row) => { setEditEntry(row); setPanelOpen(true); };
+  const openAdd = () => {
+    setEditEntry(null);
+    setPanelOpen(true);
+  };
+  const openEdit = (row) => {
+    // Clone to prevent direct state mutation
+    setTimeout(() => {
+      setEditEntry({ ...row });
+      setPanelOpen(true);
+    }, 10);
+  };
 
   const handleExportCSV = () => {
     if (!filtered || !filtered.length) return;
@@ -371,6 +470,7 @@ const FAQ = () => {
     <>
       <style>{`
         @keyframes fadeDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) translateX(-50%); } to { opacity:1; transform:translateY(0) translateX(-50%); } }
         .faq-row:hover { background: #f8fbff !important; }
         .faq-search:focus { border-color: #0072c6 !important; outline: none; }
       `}</style>
@@ -383,7 +483,7 @@ const FAQ = () => {
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#1a3a4a" }}>AI Training Dataset</h2>
             <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#5a7a8a" }}>Manage structured FAQ pairs to improve bot response accuracy.</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginLeft: "auto" }}>
             {/* Search */}
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: "11px", top: "50%", transform: "translateY(-50%)", color: "#9ab0be" }} />
@@ -439,7 +539,8 @@ const FAQ = () => {
         </div>
 
         {/* ── Table Card ── */}
-        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 2px 16px rgba(0,114,198,0.08)", overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 2px 16px rgba(0,114,198,0.08)", overflowX: "auto" }}>
+          <div style={{ minWidth: "900px" }}>
           {/* Total count */}
           <div style={{ display: "flex", justifyContent: "flex-end", padding: "14px 20px 0" }}>
             <span style={{ fontSize: "12px", color: "#9ab0be" }}>{filtered.length.toLocaleString()} total entries</span>
@@ -465,7 +566,12 @@ const FAQ = () => {
             >
               {/* Question */}
               <div>
-                <p style={{ margin: "0 0 3px", fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+                  <p style={{ margin: 0, fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
+                  {row.owner && row.owner !== "admin" && (
+                    <span style={{ fontSize: "10px", background: "#f0fdf4", color: "#16a34a", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>Agent: {row.owner.split('@')[0]}</span>
+                  )}
+                </div>
                 <p style={{ margin: 0, fontSize: "11.5px", color: "#9ab0be", fontStyle: "italic" }}>Variant: {row.variant}</p>
               </div>
               {/* Category */}
@@ -481,10 +587,12 @@ const FAQ = () => {
                   onEdit={() => openEdit(row)}
                   onDuplicate={() => handleDuplicate(row)}
                   onDelete={() => handleDelete(row.id)}
+                  openUp={i >= paginated.length - 2}
                 />
               </div>
             </div>
           ))}
+          </div>
 
           {/* Pagination */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderTop: "1px solid #f0f7ff" }}>
@@ -517,6 +625,13 @@ const FAQ = () => {
         onClose={() => setPanelOpen(false)}
         entry={editEntry}
         onSave={handleSave}
+      />
+
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast((t) => ({ ...t, show: false }))}
       />
     </>
   );

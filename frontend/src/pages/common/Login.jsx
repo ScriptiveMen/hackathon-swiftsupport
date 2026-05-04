@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser, registerUser, clearError } from "../../store/slices/authSlice.js";
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState("login");
@@ -11,67 +13,45 @@ export default function Login() {
     role: "Customer",
     organization: "Acme Corp",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, error, user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (user) {
+      const role = user.role?.toLowerCase();
+      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
+    }
+  }, [user, navigate]);
 
   const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
+  
   const switchTab = (tab) => {
     setActiveTab(tab);
-    setError("");
+    dispatch(clearError());
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginForm.email || !loginForm.password)
-      return setError("All fields are required.");
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(loginForm),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      const role = data.user?.role?.toLowerCase();
-      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (!loginForm.email || !loginForm.password) {
+      // We'll rely on server validation or add a temporary local error if needed, 
+      // but Redux will handle the main error state.
+      return;
     }
+    dispatch(loginUser(loginForm));
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.email || !signupForm.password)
-      return setError("All fields are required.");
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/auth/register`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(signupForm),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed");
-      switchTab("login");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (!signupForm.name || !signupForm.email || !signupForm.password) {
+      return;
     }
+    dispatch(registerUser(signupForm)).then((result) => {
+      if (registerUser.fulfilled.match(result)) {
+        switchTab("login");
+      }
+    });
   };
 
   /* ── reusable styles ──────────────────────────────────── */
@@ -283,7 +263,7 @@ export default function Login() {
                   />
                 </div>
               </div>
-{/* 
+
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>System Role</label>
                 <div className="flex gap-2">
@@ -303,7 +283,7 @@ export default function Login() {
                     </button>
                   ))}
                 </div>
-              </div> */}
+              </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Select Organization</label>

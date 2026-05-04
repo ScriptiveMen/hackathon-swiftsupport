@@ -84,3 +84,36 @@ button, a {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Global font — applied to every page including Admin & Agent dashboards */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #1a3a4a;
+  margin: 0;
+  padding: 0;
+}
+
+/* Admin / Agent Dashboard – mobile responsive */
+@media (max-width: 768px) {
+  .admin-hamburger {
+    display: flex !important;
+  }
+  .topbar-subtitle {
+    display: none !important;
+  }
+}
+
+/* Settings popup slide animations */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-24px); }
+}

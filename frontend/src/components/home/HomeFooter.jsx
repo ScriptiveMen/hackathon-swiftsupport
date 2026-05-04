@@ -1,4 +1,9 @@
+import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const footerLinks = {
   Product: ["Features", "Pricing", "Changelog", "Roadmap", "Integrations"],
@@ -8,128 +13,162 @@ const footerLinks = {
 };
 
 const socials = [
-  {
-    name: "Twitter/X",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-      </svg>
-    ),
-  },
-  {
-    name: "LinkedIn",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-      </svg>
-    ),
-  },
-  {
-    name: "GitHub",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
-      </svg>
-    ),
-  },
-  {
-    name: "YouTube",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-      </svg>
-    ),
-  },
+  { name: "Twitter", icon: <i className="ri-twitter-x-line"></i> },
+  { name: "LinkedIn", icon: <i className="ri-linkedin-box-line"></i> },
+  { name: "GitHub", icon: <i className="ri-github-line"></i> },
+  { name: "YouTube", icon: <i className="ri-youtube-line"></i> },
 ];
 
 export default function HomeFooter() {
   const navigate = useNavigate();
+  const footerRef = useRef(null);
+  const bigTextRef = useRef(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Simple Y-axis slide up animation
+      gsap.fromTo(
+        bigTextRef.current,
+        { 
+          opacity: 0,
+          y: 140
+        },
+        {
+          opacity: 1,
+          y: 0,
+          delay: .5,
+          duration: 1.9,
+          ease: "power4.out",
+          scrollTrigger: {
+            trigger: footerRef.current,
+            start: "top 80%",
+          },
+        }
+      );
+
+    });
+
+    return () => ctx.revert();
+  }, []);
 
   return (
     <footer
-      className="border-t"
+      ref={footerRef}
+      className="relative overflow-hidden pt-16 pb-8 border-t"
       style={{
-        background: "rgba(255,255,255,0.95)",
+        background: "rgba(255,255,255,0.85)",
+        backdropFilter: "blur(20px)",
         borderColor: "rgba(4,184,255,0.12)",
+        fontFamily: "'Inter', sans-serif",
       }}
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        {/* Top footer */}
-        <div className="py-14 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
-          {/* Brand */}
-          <div className="col-span-2 flex flex-col gap-4">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+      {/* Remix Icons & Google Fonts */}
+      <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap" rel="stylesheet" />
+
+      {/* Large Animated Title - Responsive & Horizontal */}
+      <div className="w-full px-4 mb-10 select-none overflow-hidden">
+        <h1
+          ref={bigTextRef}
+          className="text-[8vw] lg:text-[15vw] font-extrabold leading-none text-center tracking-[-0.04em]"
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            WebkitTextStroke: "1px rgba(4,184,255,0.2)",
+            color: "transparent",
+            background: "linear-gradient(180deg, #0a2a3a 0%, #04b8ff 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            textTransform: "capitalize",
+            opacity: 0.95
+          }}
+        >
+          <span>Swift</span> <span>Support</span>
+        </h1>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 footer-content relative z-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-10 lg:gap-8">
+          
+          {/* Brand Column */}
+          <div className="footer-col col-span-2 flex flex-col gap-6">
+            <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => navigate("/")}>
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #04b8ff, #0077cc)", boxShadow: "0 3px 12px rgba(4,184,255,0.40)" }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ 
+                  background: "linear-gradient(135deg, #04b8ff, #0077cc)", 
+                  boxShadow: "0 4px 16px rgba(4,184,255,0.25)" 
+                }}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="white">
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="white">
                   <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
               </div>
-              <span
-                className="text-[17px] font-bold text-[#0a2a3a]"
-                style={{ fontFamily: "'Switzer Extrabold', 'Inter', sans-serif" }}
-              >
-                SwiftSupport
-              </span>
+              <span className="text-[19px] font-bold text-[#0a2a3a] tracking-tight">SwiftSupport</span>
             </div>
-            <p className="text-[13px] text-[#5a7a8a] leading-relaxed max-w-[200px]">
-              The AI-first customer support platform for modern teams.
+            
+            <p className="text-[14px] text-[#5a7a8a] leading-relaxed max-w-[280px]">
+              Empowering modern teams with AI-first customer support. Build faster, support better, grow stronger.
             </p>
-            {/* Socials */}
-            <div className="flex gap-2">
-              {socials.map(({ name, icon }) => (
-                <button
-                  key={name}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#7aaabb] hover:text-[#04b8ff] transition-colors"
-                  style={{ background: "rgba(4,184,255,0.07)", border: "1px solid rgba(4,184,255,0.12)" }}
-                  title={name}
+
+            <div className="flex gap-4">
+              {socials.map((social) => (
+                <a
+                  key={social.name}
+                  href="#"
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-white border border-[#04b8ff]/10 text-[#5a7a8a] hover:text-[#04b8ff] hover:border-[#04b8ff]/30 transition-all shadow-sm"
+                  title={social.name}
                 >
-                  {icon}
-                </button>
+                  {social.icon}
+                </a>
               ))}
             </div>
           </div>
 
-          {/* Link columns */}
+          {/* Link Columns */}
           {Object.entries(footerLinks).map(([group, links]) => (
-            <div key={group} className="flex flex-col gap-3">
-              <h4 className="text-[12px] font-bold text-[#0a2a3a] uppercase tracking-widest">{group}</h4>
-              {links.map((link) => (
-                <a
-                  key={link}
-                  href="#"
-                  className="text-[13px] text-[#5a7a8a] hover:text-[#04b8ff] transition-colors"
-                >
-                  {link}
-                </a>
-              ))}
+            <div key={group} className="footer-col flex flex-col gap-5">
+              <h4 className="text-[12px] font-bold text-[#0a2a3a] uppercase tracking-[0.15em]">{group}</h4>
+              <div className="flex flex-col gap-3.5">
+                {links.map((link) => (
+                  <a
+                    key={link}
+                    href="#"
+                    className="text-[14px] text-[#5a7a8a] hover:text-[#04b8ff] transition-all"
+                  >
+                    {link}
+                  </a>
+                ))}
+              </div>
             </div>
           ))}
         </div>
 
         {/* Bottom bar */}
-        <div
-          className="py-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t"
-          style={{ borderColor: "rgba(4,184,255,0.10)" }}
-        >
-          <p className="text-[12px] text-[#7aaabb]">
-            © 2026 SwiftSupport, Inc. All rights reserved.
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[11px] text-[#7aaabb] font-medium">All systems operational</span>
+        <div className="mt-20 pt-8 border-t border-[#04b8ff]/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <p className="text-[13px] text-[#7aaabb]">
+              © 2026 SwiftSupport AI Inc.
+            </p>
+            <div className="hidden md:flex select-none items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] text-emerald-700 font-medium tracking-wide">SYSTEMS ONLINE</span>
+            </div>
           </div>
-          <div className="flex gap-4">
+          
+          <div className="flex gap-8">
             {["Privacy", "Terms", "Cookies"].map((l) => (
-              <a key={l} href="#" className="text-[12px] text-[#7aaabb] hover:text-[#04b8ff] transition-colors">
+              <a key={l} href="#" className="text-[13px] text-[#7aaabb] hover:text-[#04b8ff] transition-colors">
                 {l}
               </a>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Decorative background element */}
+      <div 
+        className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#04b8ff]/5 rounded-full blur-[100px] -z-0 pointer-events-none translate-y-1/2 translate-x-1/3"
+      />
     </footer>
   );
 }

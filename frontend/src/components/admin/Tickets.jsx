@@ -4,13 +4,9 @@ import {
   ChevronLeft, ChevronRight, X, Ticket as TicketIcon,
   AlertCircle, CheckCircle2, Clock, MessageSquare, Download
 } from "lucide-react";
-
-const SEED = [
-  { id: 1, ticketId: "TK-1042", subject: "Cannot reset password", customer: "Alice Johnson", priority: "High", status: "Open", assignedTo: "Unassigned", date: "May 01, 2024" },
-  { id: 2, ticketId: "TK-1043", subject: "Billing discrepancy on invoice", customer: "TechNova Corp", priority: "Medium", status: "In Progress", assignedTo: "David Smith", date: "May 02, 2024" },
-  { id: 3, ticketId: "TK-1044", subject: "API rate limit reached", customer: "GlobalSoft", priority: "Urgent", status: "Open", assignedTo: "Unassigned", date: "May 03, 2024" },
-  { id: 4, ticketId: "TK-1045", subject: "Update organization details", customer: "Nexus Labs", priority: "Low", status: "Resolved", assignedTo: "Emily Davis", date: "Apr 28, 2024" }
-];
+import { useSelector, useDispatch } from "react-redux";
+import { fetchAllTickets, updateTicketStatus, assignTicketToAgent } from "../../store/slices/ticketSlice";
+import { fetchAgents } from "../../store/slices/authSlice";
 
 const PRIORITIES = ["All", "Low", "Medium", "High", "Urgent"];
 const STATUSES = ["All", "Open", "In Progress", "Resolved", "Closed"];
@@ -31,8 +27,8 @@ const STATUS_COLORS = {
 };
 
 const avatarColors = ["#0072c6","#16a34a","#d97706","#9333ea","#e11d48","#059669","#ea580c","#2563eb"];
-const getColor = (name) => avatarColors[name.charCodeAt(0) % avatarColors.length];
-const initials  = (name) => name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase();
+const getColor = (name) => avatarColors[name?.charCodeAt(0) % avatarColors.length || 0];
+const initials  = (name) => name ? name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase() : "?";
 
 /* ── Right Side Panel ── */
 const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
@@ -40,7 +36,7 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
   const [form, setForm] = useState(blank);
 
   useEffect(() => { 
-    setForm(entry ? { priority: entry.priority, status: entry.status, assignedTo: entry.assignedTo } : blank); 
+    setForm(entry ? { priority: entry.priority, status: entry.status, assignedTo: entry.assignedTo || "Unassigned" } : blank); 
   }, [entry, open]);
 
   const h = k => e => {
@@ -64,7 +60,7 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
         {/* Header */}
         <div style={{ padding:"20px 24px", borderBottom:"1px solid #e2eef8", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div>
-            <p style={{ margin:0, fontSize:"15px", fontWeight:700, color:"#1a3a4a" }}>Manage Ticket {entry.ticketId}</p>
+            <p style={{ margin:0, fontSize:"15px", fontWeight:700, color:"#1a3a4a" }}>Manage Ticket {entry._id?.slice(-4)}</p>
             <p style={{ margin:"2px 0 0", fontSize:"12px", color:"#5a7a8a" }}>Update status or reassign</p>
           </div>
           <button onClick={onClose} style={{ border:"none", background:"#f0f7ff", borderRadius:"8px", cursor:"pointer", padding:"6px", display:"flex" }}>
@@ -77,14 +73,14 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
           
           <div style={{ background:"#f0f7ff", borderRadius:"12px", padding:"16px", marginBottom:"24px", border:"1px solid #d0eaf9" }}>
             <p style={{ margin:"0 0 4px", fontSize:"11px", fontWeight:700, color:"#9ab0be", textTransform:"uppercase", letterSpacing:"0.5px" }}>Subject</p>
-            <p style={{ margin:"0 0 12px", fontSize:"14px", fontWeight:600, color:"#1a3a4a" }}>{entry.subject}</p>
+            <p style={{ margin:"0 0 12px", fontSize:"14px", fontWeight:600, color:"#1a3a4a" }}>{entry.title}</p>
             
             <p style={{ margin:"0 0 4px", fontSize:"11px", fontWeight:700, color:"#9ab0be", textTransform:"uppercase", letterSpacing:"0.5px" }}>Customer</p>
             <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-              <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(entry.customer), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(entry.customer)}</span>
+              <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(entry.userId?.name || "Customer"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(entry.userId?.name || "Customer")}</span>
               </div>
-              <p style={{ margin:0, fontSize:"13px", color:"#1a3a4a", fontWeight: 500 }}>{entry.customer}</p>
+              <p style={{ margin:0, fontSize:"13px", color:"#1a3a4a", fontWeight: 500 }}>{entry.userId?.name || "Customer"}</p>
             </div>
           </div>
 
@@ -106,7 +102,7 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
             <label style={lbl}>Assigned To</label>
             <select value={form.assignedTo} onChange={h("assignedTo")} style={inp}>
               <option>Unassigned</option>
-              {agents.map(a => <option key={a.id}>{a.name}</option>)}
+              {agents?.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
             </select>
           </div>
 
@@ -126,31 +122,14 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
 
 /* ── Main Component ── */
 export default function Tickets() {
-  const [data, setData] = useState(() => {
-    try {
-      const local = localStorage.getItem("ss_tickets");
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed.length > 0) return parsed;
-      }
-      localStorage.setItem("ss_tickets", JSON.stringify(SEED));
-      return SEED;
-    } catch (e) {
-      return SEED;
-    }
-  });
+  const dispatch = useDispatch();
+  const { tickets, loading } = useSelector(state => state.tickets);
+  const { agents } = useSelector(state => state.auth);
 
-  const [agents, setAgents] = useState(() => {
-    try {
-      const local = localStorage.getItem("ss_agents");
-      if (local) {
-        return JSON.parse(local);
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  });
+  useEffect(() => {
+    dispatch(fetchAllTickets());
+    dispatch(fetchAgents());
+  }, [dispatch]);
 
   const [search, setSearch]         = useState("");
   const [priorityFilter, setPriorityFilter] = useState("All");
@@ -167,9 +146,14 @@ export default function Tickets() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const filtered = data.filter(r => {
+  // Safe fallback if tickets is not an array
+  const ticketsList = Array.isArray(tickets) ? tickets : [];
+
+  const filtered = ticketsList.filter(r => {
     const q = search.toLowerCase();
-    const mQ = r.ticketId.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q) || r.customer.toLowerCase().includes(q);
+    const customerName = r.userId?.name?.toLowerCase() || "";
+    const title = r.title?.toLowerCase() || "";
+    const mQ = r._id?.toLowerCase().includes(q) || title.includes(q) || customerName.includes(q);
     const mP = priorityFilter === "All" || r.priority === priorityFilter;
     const mS = statusFilter === "All" || r.status === statusFilter;
     return mQ && mP && mS;
@@ -178,11 +162,19 @@ export default function Tickets() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated  = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
-  const handleSave = form => {
+  const handleSave = async (form) => {
     if (editEntry) {
-      const newData = data.map(r => r.id === editEntry.id ? { ...r, ...form } : r);
-      setData(newData);
-      localStorage.setItem("ss_tickets", JSON.stringify(newData));
+      if (form.status !== editEntry.status) {
+        await dispatch(updateTicketStatus({ id: editEntry._id, status: form.status }));
+      }
+      if (form.assignedTo !== editEntry.assignedTo) {
+        const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
+        // The backend expects an agentId for assignment.
+        if (agentId) {
+          await dispatch(assignTicketToAgent({ id: editEntry._id, agentId }));
+        }
+      }
+      // If we had priority updates in backend we would dispatch them here too.
     }
   };
 
@@ -194,7 +186,15 @@ export default function Tickets() {
   const handleExportCSV = () => {
     if (!filtered || !filtered.length) return;
     const headers = ["Ticket ID", "Subject", "Customer", "Priority", "Status", "Assigned To", "Date"];
-    const rows = filtered.map(r => [r.ticketId, r.subject, r.customer, r.priority, r.status, r.assignedTo, r.date]);
+    const rows = filtered.map(r => [
+      r._id, 
+      r.title, 
+      r.userId?.name || "Customer", 
+      r.priority, 
+      r.status, 
+      agents?.find(a => a._id === r.assignedTo)?.name || "Unassigned", 
+      new Date(r.createdAt).toLocaleDateString()
+    ]);
     const csvContent = "data:text/csv;charset=utf-8," 
       + [headers.join(","), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -206,9 +206,9 @@ export default function Tickets() {
     document.body.removeChild(link);
   };
 
-  const openCount     = data.filter(r => r.status==="Open").length;
-  const urgentCount   = data.filter(r => r.priority==="Urgent" || r.priority==="High").length;
-  const resolvedCount = data.filter(r => r.status==="Resolved" || r.status==="Closed").length;
+  const openCount     = ticketsList.filter(r => r.status==="Open").length;
+  const urgentCount   = ticketsList.filter(r => r.priority==="Urgent" || r.priority==="High").length;
+  const resolvedCount = ticketsList.filter(r => r.status==="Resolved" || r.status==="Closed").length;
 
   return (
     <>
@@ -256,7 +256,7 @@ export default function Tickets() {
         {/* Stat Cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:"14px", marginBottom:"20px" }}>
           {[
-            { label:"Total Tickets",   value: data.length,   color:"#0072c6", bg:"#f0f7ff", Icon: TicketIcon },
+            { label:"Total Tickets",   value: ticketsList.length,   color:"#0072c6", bg:"#f0f7ff", Icon: TicketIcon },
             { label:"Open",            value: openCount,     color:"#2563eb", bg:"#eff6ff", Icon: MessageSquare },
             { label:"High Priority",   value: urgentCount,   color:"#dc2626", bg:"#fef2f2", Icon: AlertCircle },
             { label:"Resolved",        value: resolvedCount, color:"#16a34a", bg:"#f0fdf4", Icon: CheckCircle2 },
@@ -272,7 +272,8 @@ export default function Tickets() {
         </div>
 
         {/* Table */}
-        <div style={{ background:"#fff", borderRadius:"16px", boxShadow:"0 2px 16px rgba(0,114,198,0.08)", overflow:"hidden" }}>
+        <div style={{ background:"#fff", borderRadius:"16px", boxShadow:"0 2px 16px rgba(0,114,198,0.08)", overflowX:"auto" }}>
+          <div style={{ minWidth: "900px" }}>
           <div style={{ display:"flex", justifyContent:"flex-end", padding:"14px 20px 0" }}>
             <span style={{ fontSize:"12px", color:"#9ab0be" }}>{filtered.length.toLocaleString()} tickets</span>
           </div>
@@ -282,28 +283,33 @@ export default function Tickets() {
             {["SUBJECT","CUSTOMER","PRIORITY","STATUS","ASSIGNED TO",""].map((h,i) => <span key={i} style={{ fontSize:"11px", fontWeight:700, color:"#9ab0be", letterSpacing:"0.5px" }}>{h}</span>)}
           </div>
 
-          {paginated.length === 0
-            ? <div style={{ padding:"48px", textAlign:"center", color:"#9ab0be", fontSize:"14px" }}>No tickets found.</div>
-            : paginated.map((row, i) => {
+          {loading ? (
+            <div style={{ padding:"48px", textAlign:"center", color:"#9ab0be", fontSize:"14px" }}>Loading tickets...</div>
+          ) : paginated.length === 0 ? (
+            <div style={{ padding:"48px", textAlign:"center", color:"#9ab0be", fontSize:"14px" }}>No tickets found.</div>
+          ) : paginated.map((row, i) => {
               const pc = PRIORITY_COLORS[row.priority] || { bg:"#f0f7ff", color:"#0072c6" };
               const sc = STATUS_COLORS[row.status] || STATUS_COLORS["Open"];
               const StatusIcon = sc.icon;
+              const customerName = row.userId?.name || "Customer";
+              const agentName = agents?.find(a => a._id === row.assignedTo)?.name || "Unassigned";
+              
               return (
-                <div key={row.id} className="ticket-row" style={{ display:"grid", gridTemplateColumns:"minmax(250px,2fr) 1.2fr 100px 120px 1.2fr 60px", padding:"13px 20px", borderBottom: i < paginated.length-1 ? "1px solid #f5f9ff" : "none", alignItems:"center", transition:"background 0.15s", gap:"10px" }}>
+                <div key={row._id} className="ticket-row" style={{ display:"grid", gridTemplateColumns:"minmax(250px,2fr) 1.2fr 100px 120px 1.2fr 60px", padding:"13px 20px", borderBottom: i < paginated.length-1 ? "1px solid #f5f9ff" : "none", alignItems:"center", transition:"background 0.15s", gap:"10px" }}>
                   {/* Subject Info */}
                   <div>
                     <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"3px" }}>
-                      <span style={{ fontSize:"11px", fontWeight:700, color:"#0072c6", background:"#f0f7ff", padding:"2px 6px", borderRadius:"4px" }}>{row.ticketId}</span>
-                      <p style={{ margin:0, fontSize:"13px", fontWeight:600, color:"#1a3a4a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.subject}</p>
+                      <span style={{ fontSize:"11px", fontWeight:700, color:"#0072c6", background:"#f0f7ff", padding:"2px 6px", borderRadius:"4px" }}>{row._id?.slice(-4).toUpperCase()}</span>
+                      <p style={{ margin:0, fontSize:"13px", fontWeight:600, color:"#1a3a4a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.title}</p>
                     </div>
-                    <p style={{ margin:0, fontSize:"11px", color:"#9ab0be" }}>Opened {row.date}</p>
+                    <p style={{ margin:0, fontSize:"11px", color:"#9ab0be" }}>Opened {new Date(row.createdAt).toLocaleDateString()}</p>
                   </div>
                   {/* Customer */}
                   <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                    <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(row.customer), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(row.customer)}</span>
+                    <div style={{ width:24, height:24, borderRadius:"50%", background:getColor(customerName), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ color:"#fff", fontSize:"9px", fontWeight:700 }}>{initials(customerName)}</span>
                     </div>
-                    <span style={{ fontSize:"12px", color:"#1a3a4a", fontWeight:500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.customer}</span>
+                    <span style={{ fontSize:"12px", color:"#1a3a4a", fontWeight:500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{customerName}</span>
                   </div>
                   {/* Priority */}
                   <div>
@@ -315,7 +321,7 @@ export default function Tickets() {
                   </span>
                   {/* Assigned To */}
                   <span style={{ fontSize:"12px", color:"#5a7a8a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {row.assignedTo}
+                    {agentName}
                   </span>
                   {/* Actions */}
                   <div style={{ display:"flex", justifyContent:"flex-end" }}>
@@ -327,6 +333,7 @@ export default function Tickets() {
               );
             })
           }
+          </div>
 
           {/* Pagination */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderTop:"1px solid #f0f7ff" }}>
