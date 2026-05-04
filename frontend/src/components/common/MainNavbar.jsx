@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import gsap from "gsap";
 import { StaggeredMenu } from "../home/StaggeredMenu";
 
+import toast from "react-hot-toast";
+
 const FONT = "'Switzer Extrabold', '  Inter', sans-serif";
 
 export default function MainNavbar() {
@@ -14,7 +16,7 @@ export default function MainNavbar() {
   const linksRef = useRef([]);
   const ctaRef = useRef(null);
 
-  const navLinks = ["Home", "Features", "Docs"];
+  const navLinks = ["Home", "Features", "Pricing", "Docs"];
 
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const isLoggedIn = !!user;
@@ -104,10 +106,14 @@ export default function MainNavbar() {
   };
 
   const getMobileMenuItems = () => {
-    const baseItems = navLinks.map((l) => ({ 
+    const mobileLinks = ["Home", "Features", "Pricing", "Docs"];
+    const baseItems = mobileLinks.map((l) => ({ 
       label: l, 
       onClick: () => {
         if (l === "Home") navigate("/");
+        else if (l === "Pricing") {
+          toast.success("Pricing is coming soon! For now, SwiftSupport is 100% Free.", { icon: '🎁' });
+        }
         else navigate(`/${l.toLowerCase()}`);
       } 
     }));
@@ -121,6 +127,15 @@ export default function MainNavbar() {
       } else {
         baseItems.push({ label: "Chat", onClick: () => navigate("/chat") });
       }
+
+      // Add special account item for the bottom section
+      baseItems.push({
+        isAccount: true,
+        initials: getInitials(user?.name),
+        name: user?.name,
+        email: user?.email,
+        onLogout: handleLogout
+      });
     }
     return baseItems;
   };
@@ -181,6 +196,9 @@ export default function MainNavbar() {
                   ref={(el) => (linksRef.current[i] = el)}
                   onClick={() => {
                     if (link === "Home") navigate("/");
+                    else if (link === "Pricing") {
+                      toast.success("Pricing is coming soon! For now, SwiftSupport is 100% Free.", { icon: '🎁' });
+                    }
                     else navigate(`/${link.toLowerCase()}`);
                   }}
                   onMouseEnter={(e) => handleLinkEnter(e.currentTarget)}

@@ -21,8 +21,17 @@ const AgentFAQ = lazy(() => import("./pages/agent/AgentFAQ.jsx"));
 const AgentDocs = lazy(() => import("./pages/agent/AgentDocs.jsx"));
 const AgentSettings = lazy(() => import("./pages/agent/AgentSettings.jsx"));
 const FeaturesPage = lazy(() => import("./pages/common/Features.jsx"));
-const PricingPage = lazy(() => import("./pages/common/Pricing.jsx"));
 const HelpCenter = lazy(() => import("./pages/common/HelpCenter.jsx"));
+const AboutUs = lazy(() => import("./pages/common/AboutUs.jsx"));
+const Roadmap = lazy(() => import("./pages/common/Roadmap.jsx"));
+const Integrations = lazy(() => import("./pages/common/Integrations.jsx"));
+const Security = lazy(() => import("./pages/common/Security.jsx"));
+
+// Legal Pages
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy.jsx"));
+const TermsOfService = lazy(() => import("./pages/legal/TermsOfService.jsx"));
+const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy.jsx"));
+const GDPR = lazy(() => import("./pages/legal/GDPR.jsx"));
 
 import MainLayout from "./components/common/MainLayout.jsx";
 import ProtectedRoute from "./components/common/ProtectedRoute.jsx";
@@ -123,7 +132,7 @@ const App = () => {
 
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster position="top-right" reverseOrder={false} />
       <Suspense fallback={<Loader />}>
         <Routes>
           <Route element={<MainLayout />}>
@@ -131,6 +140,14 @@ const App = () => {
             <Route path="/chat" element={<ProtectedRoute allowedRoles={["customer"]}><CustomerChat /></ProtectedRoute>} />
             <Route path="/features" element={<FeaturesPage />} />
             <Route path="/docs" element={<HelpCenter />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/security" element={<Security />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/cookies" element={<CookiePolicy />} />
+            <Route path="/gdpr" element={<GDPR />} />
           </Route>
 
           {/* Admin Routes */}

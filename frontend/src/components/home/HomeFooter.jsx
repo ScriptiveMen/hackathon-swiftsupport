@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import toast from "react-hot-toast";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -30,6 +31,23 @@ const socials = [
   { name: "GitHub", icon: <i className="ri-github-line"></i> },
   { name: "YouTube", icon: <i className="ri-youtube-line"></i> },
 ];
+
+const routeMap = {
+  "Features": "/features",
+  "Pricing": "/pricing",
+  "Roadmap": "/roadmap",
+  "Integrations": "/integrations",
+  "About Us": "/about",
+  "Documentation": "/docs",
+  "Privacy Policy": "/privacy",
+  "Terms of Service": "/terms",
+  "Cookie Policy": "/cookies",
+  "GDPR": "/gdpr",
+  "Security": "/security",
+  "Privacy": "/privacy",
+  "Terms": "/terms",
+  "Cookies": "/cookies",
+};
 
 export default function HomeFooter() {
   const navigate = useNavigate();
@@ -152,13 +170,23 @@ export default function HomeFooter() {
               </h4>
               <div className="flex flex-col gap-3.5">
                 {links.map((link) => (
-                  <a
-                    key={link}
-                    href="#"
-                    className="text-[14px] text-[#5a7a8a] hover:text-[#04b8ff] transition-all"
-                  >
-                    {link}
-                  </a>
+                  link === "Pricing" ? (
+                    <button
+                      key={link}
+                      onClick={() => toast.success("Pricing is coming soon! For now, SwiftSupport is 100% Free.", { icon: '🎁' })}
+                      className="text-[14px] text-[#5a7a8a] hover:text-[#04b8ff] transition-all text-left bg-transparent border-none p-0 cursor-pointer"
+                    >
+                      {link}
+                    </button>
+                  ) : (
+                    <Link
+                      key={link}
+                      to={routeMap[link] || "#"}
+                      className="text-[14px] text-[#5a7a8a] hover:text-[#04b8ff] transition-all"
+                    >
+                      {link}
+                    </Link>
+                  )
                 ))}
               </div>
             </div>
@@ -181,13 +209,13 @@ export default function HomeFooter() {
 
           <div className="flex gap-8">
             {["Privacy", "Terms", "Cookies"].map((l) => (
-              <a
+              <Link
                 key={l}
-                href="#"
+                to={routeMap[l] || "#"}
                 className="text-[13px] text-[#7aaabb] hover:text-[#04b8ff] transition-colors"
               >
                 {l}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
