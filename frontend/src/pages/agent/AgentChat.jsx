@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import { Send, MoreVertical, Search, Paperclip, CheckCheck } from "lucide-react";
-import { getAllChats, getChatById } from "../../store/slices/chatSlice";
+import { getAllChats, getChatById, sendMessage } from "../../store/slices/chatSlice";
+
 
 const AgentChat = () => {
   const dispatch = useDispatch();
@@ -31,12 +32,18 @@ const AgentChat = () => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!inputMsg.trim()) return;
+    if (!inputMsg.trim() || !activeChatId) return;
 
-    // TODO: implement sending message via backend API (chat/sendMsg endpoint not defined in backend yet)
-    // For now, we just clear the input to show UI response.
+    const messageText = inputMsg;
     setInputMsg("");
+    
+    dispatch(sendMessage({ 
+      chatId: activeChatId, 
+      message: messageText, 
+      sender: "agent" 
+    }));
   };
+
 
   return (
     <div className="h-full flex flex-col p-4 md:p-8 animate-fade-in-up">

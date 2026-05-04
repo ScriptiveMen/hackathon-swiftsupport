@@ -52,15 +52,19 @@ const AgentDashboard = () => {
   const handleGrantRequest = async (ticket) => {
     setGrantingId(ticket._id);
     try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      await dispatch(assignTicketToAgent({ id: ticket._id, agentId: user.id })).unwrap();
-      navigate("/dashboard/chat", { state: { chatId: ticket.chatId } });
+      const userStr = localStorage.getItem("user");
+      const userObj = userStr ? JSON.parse(userStr) : null;
+      const agentId = userObj?._id || userObj?.id;
+
+      await dispatch(assignTicketToAgent({ id: ticket._id, agentId })).unwrap();
+      navigate("/agent/chat", { state: { chatId: ticket.chatId } });
     } catch (error) {
       console.error("Failed to grant request:", error);
     } finally {
       setGrantingId(null);
     }
   };
+
 
   return (
     <main data-lenis-prevent style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
@@ -210,11 +214,12 @@ const AgentDashboard = () => {
                     </p>
                   </div>
                   <button 
-                    onClick={() => navigate("/dashboard/chat", { state: { chatId: chat._id } })}
+                    onClick={() => navigate("/agent/chat", { state: { chatId: chat._id } })}
                     style={{ background: "#f0f7ff", border: "none", color: "#0072c6", padding: "6px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer", fontWeight: 600 }}
                   >
                     View Chat
                   </button>
+
                 </div>
               ))
             ) : (

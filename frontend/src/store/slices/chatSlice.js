@@ -42,6 +42,19 @@ export const startChat = createAsyncThunk(
   },
 );
 
+export const sendMessage = createAsyncThunk(
+  "chat/sendMessage",
+  async ({ chatId, message, sender }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosClient.post(`/chat/sendMsg/${chatId}`, { message, sender });
+      return data.data; // The new message object
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || "Failed to send message");
+    }
+  },
+);
+
+
 /* ── Slice ──────────────────────────────────────────────────────────────── */
 
 const initialState = {
@@ -109,7 +122,12 @@ const chatSlice = createSlice({
       .addCase(startChat.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      /* Send Message */
+      .addCase(sendMessage.fulfilled, (state, action) => {
+        state.activeChatMessages.push(action.payload);
       });
+
   },
 });
 

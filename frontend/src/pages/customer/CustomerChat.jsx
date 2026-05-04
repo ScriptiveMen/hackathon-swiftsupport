@@ -1,24 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Send, Paperclip, MoreHorizontal, Smile } from "lucide-react";
-import { startChat, getAllChats, getChatById } from "../../store/slices/chatSlice";
+import { Send, Paperclip, MoreHorizontal, Smile, Headset, MessageSquare } from "lucide-react";
+
+
+import { startChat, getAllChats, getChatById, sendMessage } from "../../store/slices/chatSlice";
 import { getAIResponse } from "../../store/slices/aiSlice";
+import { createTicket } from "../../store/slices/ticketSlice";
 
 const CustomerChat = () => {
   const dispatch = useDispatch();
-  const { activeChatId, chats } = useSelector((state) => state.chat);
+  const { activeChatId, activeChatMessages, chats, loading: chatLoading } = useSelector((state) => state.chat);
   const { loading: aiLoading, response: aiResponseData } = useSelector((state) => state.ai);
 
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Hi! How can we help you today?", sender: "agent", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-  ]);
   const [inputMsg, setInputMsg] = useState("");
+  const [escalating, setEscalating] = useState(false);
   const scrollRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem("user") || '{"name": "Customer"}');
 
   useEffect(() => {
-    // Attempt to load existing chats or start a new one
+    // Load existing chats or start a new one
     dispatch(getAllChats()).unwrap().then((fetchedChats) => {
       if (fetchedChats && fetchedChats.length > 0) {
         dispatch(getChatById(fetchedChats[0]._id));
@@ -28,41 +29,59 @@ const CustomerChat = () => {
     }).catch((err) => console.error("Failed to load chats:", err));
   }, [dispatch]);
 
-  // Handle incoming AI response
+  // Handle incoming AI response and save it to the chat
   useEffect(() => {
-    if (aiResponseData && aiResponseData.answer) {
-       setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: aiResponseData.answer,
-          sender: "agent",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-       }]);
+    if (aiResponseData && aiResponseData.answer && activeChatId) {
+       // We should ideally save the AI response to the database too via a thunk
+       // For now, it might be handled by the backend /ai/respond
     }
-  }, [aiResponseData]);
+  }, [aiResponseData, activeChatId]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, aiLoading]);
+  }, [activeChatMessages, aiLoading]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!inputMsg.trim()) return;
+    if (!inputMsg.trim() || !activeChatId) return;
 
-    const newMsg = {
-      id: Date.now(),
-      text: inputMsg,
-      sender: "user",
-      userName: user.name || "Customer",
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages([...messages, newMsg]);
-    
-    // Dispatch to AI route
-    dispatch(getAIResponse({ question: inputMsg, chatId: activeChatId }));
+    const messageText = inputMsg;
     setInputMsg("");
+    
+    // 1. Send to real chat history
+    dispatch(sendMessage({ chatId: activeChatId, message: messageText, sender: "user" }));
+    
+    // 2. Dispatch to AI route for immediate response
+    dispatch(getAIResponse({ question: messageText, chatId: activeChatId }));
+  };
+
+  const handleEscalate = async () => {
+    if (!activeChatId) return;
+    setEscalating(true);
+    try {
+      await dispatch(createTicket({
+        title: "Chat Escalation",
+        description: `Customer ${user.name || 'User'} requested human assistance.`,
+        chatId: activeChatId,
+        priority: "high",
+        status: "open"
+      })).unwrap();
+      
+      // Add a local message indicating escalation
+      // This could also be a system message in the DB
+      dispatch(sendMessage({ 
+        chatId: activeChatId, 
+        message: "I've notified a human agent. They will join the chat shortly.", 
+        sender: "agent" 
+      }));
+
+    } catch (err) {
+      console.error("Escalation failed:", err);
+    } finally {
+      setEscalating(false);
+    }
   };
 
   return (
@@ -70,7 +89,7 @@ const CustomerChat = () => {
       <div className="bg-white border border-gray-100 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] flex-1 flex flex-col overflow-hidden relative min-h-0">
         
         {/* Chat Header */}
-        <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between bg-white z-10">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-12 h-12 rounded-full bg-[#04b8ff] flex items-center justify-center text-white shadow-lg shadow-blue-100">
@@ -81,13 +100,24 @@ const CustomerChat = () => {
               <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#22c55e] border-2 border-white rounded-full"></span>
             </div>
             <div>
-              <h3 className="text-[18px] font-bold text-[#111827] leading-tight">SwiftSupport AI Assistant</h3>
-              <p className="text-[11px] font-bold text-[#22c55e] mt-0.5 tracking-wider uppercase">● Always Online</p>
+              <h3 className="text-[18px] font-bold text-[#111827] leading-tight">SwiftSupport Assistant</h3>
+              <p className="text-[11px] font-bold text-[#22c55e] mt-0.5 tracking-wider uppercase">● Online</p>
             </div>
           </div>
-          <button className="text-gray-400 hover:text-gray-600 p-2 transition-colors">
-            <MoreHorizontal size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleEscalate}
+              disabled={escalating}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-full text-xs font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              <Headset size={16} />
+              {escalating ? "Connecting..." : "Connect to Human"}
+            </button>
+
+            <button className="text-gray-400 hover:text-gray-600 p-2 transition-colors">
+              <MoreHorizontal size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Messages Area */}
@@ -95,25 +125,34 @@ const CustomerChat = () => {
           ref={scrollRef}
           className="flex-1 overflow-y-auto p-8 space-y-8 bg-white custom-scrollbar"
         >
-          {messages.map((msg) => {
+          {activeChatMessages.length === 0 && !chatLoading && (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
+               <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center">
+                  <MessageSquare size={32} />
+               </div>
+               <p className="text-sm font-medium">Starting a new conversation...</p>
+            </div>
+          )}
+
+          {activeChatMessages.map((msg, idx) => {
             const isUser = msg.sender === "user";
             return (
-              <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+              <div key={msg._id || idx} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[85%] px-6 py-4 rounded-[20px] text-[15px] leading-snug ${
                   isUser 
-                  ? 'bg-[#04b8ff] text-white rounded-tr-none' 
+                  ? 'bg-[#04b8ff] text-white rounded-tr-none shadow-md shadow-blue-100' 
                   : 'bg-[#f9fafb] border border-gray-100 text-[#374151] rounded-tl-none'
                 }`}>
-                  {msg.text}
+                  {msg.text || msg.message}
                 </div>
-                <span className="text-[11px] font-medium text-gray-400 mt-2 px-1 uppercase tracking-tight">
-                  {msg.time}
+                <span className="text-[11px] font-bold text-gray-300 mt-2 px-1 uppercase tracking-tight">
+                  {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             );
           })}
           
-          {aiLoading && (
+          {(aiLoading || chatLoading) && (
             <div className="flex flex-col items-start">
               <div className="bg-[#f9fafb] border border-gray-100 rounded-[20px] rounded-tl-none px-5 py-4">
                 <div className="flex gap-1.5">
@@ -181,3 +220,4 @@ const CustomerChat = () => {
 };
 
 export default CustomerChat;
+
