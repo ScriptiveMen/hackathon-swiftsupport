@@ -10,11 +10,12 @@ const getAllFAQ = async (req, res) => {
     // check if user belongs to organization
     const user = await userModel.findById(userId);
 
-    if (!user || user.organizationId.toString() !== organizationId.toString()) {
+    if (!user || user.organizationId.toString() !== organizationId.toString() || user.role === "customer") {
       return res
         .status(403)
         .json({ status: false, message: "Unauthorized access" });
     }
+
 
     const knowledgeBase = await knowledgeModel.find({ organizationId });
 

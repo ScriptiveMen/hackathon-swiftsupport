@@ -23,7 +23,7 @@ router.post(
 router.get("/getUser", authMiddleware, authControllers.getUserById);
 
 /* DELETE /api/auth/delete */
-router.delete("/delete", authMiddleware, authControllers.deleteUser);
+router.delete("/delete/:id", authMiddleware, authControllers.deleteUser);
 
 /* GET /api/auth/organizations */
 router.get(
@@ -32,5 +32,8 @@ router.get(
 );
 
 router.get("/getAllUsers", authMiddleware, authControllers.getAllUsers);
+
+// Get All agents
+router.get("/getAllAgents", authMiddleware, authControllers.getAllAgents);
 
 module.exports = router;
