@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { Send, Paperclip, MoreHorizontal, Smile, Headset, MessageSquare } from "lucide-react";
-
-
-import { startChat, getAllChats, getChatById, sendMessage } from "../../store/slices/chatSlice";
-import { getAIResponse } from "../../store/slices/aiSlice";
-import { createTicket } from "../../store/slices/ticketSlice";
+import { useState, useEffect, useRef } from "react";
+import { Headset, MessageSquare, MoreHorizontal, Paperclip, Smile } from "lucide-react";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
 
 const CustomerChat = () => {
-  const dispatch = useDispatch();
-  const { activeChatId, activeChatMessages, chats, loading: chatLoading } = useSelector((state) => state.chat);
-  const { loading: aiLoading, response: aiResponseData } = useSelector((state) => state.ai);
+  const [activeChatMessages, setActiveChatMessages] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [inputMsg, setInputMsg] = useState("");
   const [escalating, setEscalating] = useState(false);
@@ -18,65 +15,87 @@ const CustomerChat = () => {
 
   const user = JSON.parse(localStorage.getItem("user") || '{"name": "Customer"}');
 
+  // Data Fetching
   useEffect(() => {
-    // Load existing chats or start a new one
-    dispatch(getAllChats()).unwrap().then((fetchedChats) => {
-      if (fetchedChats && fetchedChats.length > 0) {
-        dispatch(getChatById(fetchedChats[0]._id));
-      } else {
-        dispatch(startChat());
+    const initChat = async () => {
+      try {
+        setChatLoading(true);
+        const { data } = await axiosClient.get("/chat/getAllChats");
+        const fetchedChats = data.data || [];
+        if (fetchedChats.length > 0) {
+          const cid = fetchedChats[0]._id;
+          setActiveChatId(cid);
+          const chatDetails = await axiosClient.get(`/chat/getChatById/${cid}`);
+          setActiveChatMessages(chatDetails.data.data || []);
+        } else {
+          const newChat = await axiosClient.post("/chat/startChat");
+          setActiveChatId(newChat.data.chatId);
+          setActiveChatMessages([]);
+        }
+      } catch (err) {
+        console.error("Failed to load chats:", err);
+      } finally {
+        setChatLoading(false);
       }
-    }).catch((err) => console.error("Failed to load chats:", err));
-  }, [dispatch]);
+    };
+    initChat();
+  }, []);
 
-  // Handle incoming AI response and save it to the chat
-  useEffect(() => {
-    if (aiResponseData && aiResponseData.answer && activeChatId) {
-       // We should ideally save the AI response to the database too via a thunk
-       // For now, it might be handled by the backend /ai/respond
-    }
-  }, [aiResponseData, activeChatId]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [activeChatMessages, aiLoading]);
-
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMsg.trim() || !activeChatId) return;
 
     const messageText = inputMsg;
     setInputMsg("");
     
-    // 1. Send to real chat history
-    dispatch(sendMessage({ chatId: activeChatId, message: messageText, sender: "user" }));
-    
-    // 2. Dispatch to AI route for immediate response
-    dispatch(getAIResponse({ question: messageText, chatId: activeChatId }));
+    try {
+      const { data: msgData } = await axiosClient.post(`/chat/sendMsg/${activeChatId}`, { message: messageText, sender: "user" });
+      setActiveChatMessages(prev => [...prev, msgData.data]);
+      
+      setAiLoading(true);
+      const { data: aiData } = await axiosClient.post("/ai/respond", { question: messageText, chatId: activeChatId });
+      if (aiData.answer) {
+        setActiveChatMessages(prev => [...prev, { message: aiData.answer, sender: "agent", createdAt: new Date() }]);
+      }
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleEscalate = async () => {
     if (!activeChatId) return;
     setEscalating(true);
     try {
-      await dispatch(createTicket({
+      const { data: ticketData } = await axiosClient.post("/tickets/createTicket", {
         title: "Chat Escalation",
         description: `Customer ${user.name || 'User'} requested human assistance.`,
         chatId: activeChatId,
         priority: "high",
         status: "open"
-      })).unwrap();
-      
-      // Add a local message indicating escalation
-      // This could also be a system message in the DB
-      dispatch(sendMessage({ 
-        chatId: activeChatId, 
-        message: "I've notified a human agent. They will join the chat shortly.", 
-        sender: "agent" 
-      }));
+      });
+      const ticket = ticketData.ticket || ticketData;
 
+      const { data: agentsData } = await axiosClient.get("/auth/agents");
+      const agents = agentsData.agents || agentsData.data || agentsData;
+      
+      if (agents && agents.length > 0) {
+        const autoAgentId = agents[0]._id || agents[0].id;
+        await axiosClient.put(`/tickets/ticketAssginedToAgent/${ticket._id}`, { agentId: autoAgentId });
+        
+        const { data: notifyData } = await axiosClient.post(`/chat/sendMsg/${activeChatId}`, { 
+          message: `System: An agent (${agents[0].name || 'Support'}) has been automatically assigned to this chat. They will join shortly. AI will continue to assist you in the meantime.`, 
+          sender: "agent" 
+        });
+        setActiveChatMessages(prev => [...prev, notifyData.data]);
+      } else {
+        const { data: notifyData } = await axiosClient.post(`/chat/sendMsg/${activeChatId}`, { 
+          message: "I've notified our support team. They will join as soon as someone is available. AI will continue to assist you.", 
+          sender: "agent" 
+        });
+        setActiveChatMessages(prev => [...prev, notifyData.data]);
+      }
     } catch (err) {
       console.error("Escalation failed:", err);
     } finally {
@@ -84,8 +103,14 @@ const CustomerChat = () => {
     }
   };
 
+
+
+
+
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] mt-[80px] max-w-4xl mx-auto p-4 md:py-6 font-[Inter,sans-serif]">
+    <>
+      {chatLoading && <Loader />}
+      <div className="flex flex-col h-[calc(100vh-80px)] mt-[80px] max-w-4xl mx-auto p-4 md:py-6 font-[Inter,sans-serif]">
       <div className="bg-white border border-gray-100 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] flex-1 flex flex-col overflow-hidden relative min-h-0">
         
         {/* Chat Header */}
@@ -146,7 +171,7 @@ const CustomerChat = () => {
                   {msg.text || msg.message}
                 </div>
                 <span className="text-[11px] font-bold text-gray-300 mt-2 px-1 uppercase tracking-tight">
-                  {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                 </span>
               </div>
             );
@@ -216,8 +241,8 @@ const CustomerChat = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
 export default CustomerChat;
-

@@ -1,19 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { Search, Filter, MoreHorizontal, ArrowUpRight, CheckCircle2, Clock } from "lucide-react";
-import { fetchAllTickets } from "../../store/slices/ticketSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
 
 const PAGE_SIZE = 5;
 
 const AgentTicketHistory = () => {
-  const dispatch = useDispatch();
-  const { tickets, loading } = useSelector((state) => state.tickets);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllTickets());
-  }, [dispatch]);
+    const getTickets = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/tickets/getAllTickets");
+        setTickets(data.tickets || data.data || data);
+      } catch (err) {
+        console.error("Failed to fetch tickets:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getTickets();
+  }, []);
+
 
   const getStatusBadge = (status) => {
     switch (status) {

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { useDispatch, useSelector } from "react-redux";
-import { loginUser, registerUser, clearError } from "../../store/slices/authSlice.js";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axiosClient from "../../api/axiosClient.js";
+
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState("login");
@@ -11,48 +11,79 @@ export default function Login() {
     email: "",
     password: "",
     role: "Customer",
-    organization: "Acme Corp",
+    organizationName: "Acme Corp", 
   });
   
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error, user } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    if (user) {
-      const role = user.role?.toLowerCase();
-      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
-    }
-  }, [user, navigate]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
   
   const switchTab = (tab) => {
     setActiveTab(tab);
-    dispatch(clearError());
+    setError(null);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginForm.email || !loginForm.password) {
-      // We'll rely on server validation or add a temporary local error if needed, 
-      // but Redux will handle the main error state.
-      return;
+    if (!loginForm.email || !loginForm.password) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axiosClient.post("/auth/login", loginForm);
+      if (!data.token) {
+        throw new Error(data.message || "Login did not return an auth token");
+      }
+
+      localStorage.setItem("token", data.token);
+      
+      let finalUser = data.user;
+      if (data.status && !data.user) {
+        const userRes = await axiosClient.get("/auth/getUser");
+        finalUser = userRes.data.data || userRes.data;
+      }
+
+      if (!finalUser) {
+        throw new Error("Login did not return user details");
+      }
+      
+      localStorage.setItem("user", JSON.stringify(finalUser));
+      
+      const role = finalUser.role?.toLowerCase();
+      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
+    } catch (err) {
+      console.error("Login Error:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
-    dispatch(loginUser(loginForm));
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.email || !signupForm.password) {
-      return;
+    if (!signupForm.name || !signupForm.email || !signupForm.password) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axiosClient.post("/auth/register", signupForm);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      
+      const role = data.user.role?.toLowerCase();
+      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
+    } catch (err) {
+      console.error("Signup Error:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false);
     }
-    dispatch(registerUser(signupForm)).then((result) => {
-      if (registerUser.fulfilled.match(result)) {
-        switchTab("login");
-      }
-    });
   };
+
+
+
 
   /* ── reusable styles ──────────────────────────────────── */
   const inputCls =
@@ -292,13 +323,14 @@ export default function Login() {
                     <BriefIcon />
                   </span>
                   <select
-                    value={signupForm.organization}
+                    value={signupForm.organizationName}
                     onChange={(e) =>
                       setSignupForm({
                         ...signupForm,
-                        organization: e.target.value,
+                        organizationName: e.target.value,
                       })
                     }
+
                     className="w-full bg-white border border-[#0bbaff]/30 rounded-lg pl-10 pr-8 py-2.5
                                text-[13.5px] text-[#1e3a4a] outline-none appearance-none cursor-pointer
                                focus:border-[#04b8ff] focus:ring-2 focus:ring-[#04b8ff]/15 transition shadow-sm"

@@ -1,17 +1,30 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, Search, MessageCircleQuestion } from "lucide-react";
-import { fetchAllFAQ } from "../../store/slices/knowledgeSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
 
 const AgentFAQ = () => {
-  const dispatch = useDispatch();
-  const { faqs, loading } = useSelector((state) => state.knowledge);
+  const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [openItems, setOpenItems] = useState({});
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllFAQ());
-  }, [dispatch]);
+    const getFaqs = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/knowledge/faq");
+        setFaqs(data.data || data.faqs || data);
+      } catch (err) {
+        console.error("Failed to fetch FAQs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getFaqs();
+  }, []);
+
 
   const toggleItem = (id) => {
     setOpenItems((prev) => ({ ...prev, [id]: !prev[id] }));

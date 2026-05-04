@@ -1,48 +1,73 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import { Send, MoreVertical, Search, Paperclip, CheckCheck } from "lucide-react";
-import { getAllChats, getChatById, sendMessage } from "../../store/slices/chatSlice";
-
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
 
 const AgentChat = () => {
-  const dispatch = useDispatch();
   const location = useLocation();
-  const { chats, activeChatMessages, activeChatId, loading } = useSelector((state) => state.chat);
+  const [chats, setChats] = useState([]);
+  const [activeChatMessages, setActiveChatMessages] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [loading, setLoading] = useState(false);
   
   const [activeChat, setActiveChat] = useState(null);
   const [inputMsg, setInputMsg] = useState("");
 
-  const handleChatClick = (chat) => {
+  const handleChatClick = async (chat) => {
     setActiveChat(chat);
-    dispatch(getChatById(chat._id));
+    setActiveChatId(chat._id);
+    try {
+      const { data } = await axiosClient.get(`/chat/getChatById/${chat._id}`);
+      setActiveChatMessages(data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch chat details:", err);
+    }
   };
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(getAllChats()).unwrap().then((fetchedChats) => {
-      const routedChatId = location.state?.chatId;
-      if (routedChatId) {
-        const chatToSelect = fetchedChats.find(c => c._id === routedChatId);
-        if (chatToSelect) {
-          handleChatClick(chatToSelect);
-        }
-      }
-    }).catch(console.error);
-  }, [dispatch, location.state]);
+    const fetchChats = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/chat/getAllChats");
+        const fetchedChats = data.data || [];
+        setChats(fetchedChats);
 
-  const handleSendMessage = (e) => {
+        const routedChatId = location.state?.chatId;
+        if (routedChatId) {
+          const chatToSelect = fetchedChats.find(c => c._id === routedChatId);
+          if (chatToSelect) {
+            handleChatClick(chatToSelect);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch chats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChats();
+  }, [location.state]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMsg.trim() || !activeChatId) return;
 
     const messageText = inputMsg;
     setInputMsg("");
     
-    dispatch(sendMessage({ 
-      chatId: activeChatId, 
-      message: messageText, 
-      sender: "agent" 
-    }));
+    try {
+      const { data } = await axiosClient.post(`/chat/sendMsg/${activeChatId}`, { 
+        message: messageText, 
+        sender: "agent" 
+      });
+      setActiveChatMessages(prev => [...prev, data.data]);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   };
+
 
 
   return (

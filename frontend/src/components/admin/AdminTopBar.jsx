@@ -1,19 +1,20 @@
 import React, { useState } from "react";
 import { Bell, Search, Settings, Menu, LogOut } from "lucide-react";
-import { useSelector, useDispatch } from "react-redux";
-import { logout } from "../../store/slices/authSlice.js";
 import { useNavigate } from "react-router-dom";
 
+
 const AdminTopBar = ({ setSidebarOpen, sidebarOpen }) => {
-  const { user } = useSelector((state) => state.auth);
-  const dispatch = useDispatch();
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const handleLogout = () => {
-    dispatch(logout());
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login");
+    window.location.reload(); // Ensure state is fully reset
   };
+
 
   const getInitials = (name) => {
     if (!name) return "??";

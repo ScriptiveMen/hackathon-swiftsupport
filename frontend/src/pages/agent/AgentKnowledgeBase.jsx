@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
 import {
   Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X,
   ChevronLeft, ChevronRight, CheckCircle, Clock, BookOpen, Download,
 } from "lucide-react";
-import { fetchAllFAQ, createFAQ, updateFAQ, deleteFAQ } from "../../store/slices/knowledgeSlice";
+
 
 
 
@@ -283,12 +284,25 @@ const menuBtnStyle = (color) => ({
 
 /* ── Main Knowledge Base Component ───────────────────────────────── */
 const AgentKnowledgeBase = () => {
-  const dispatch = useDispatch();
-  const { faqs, loading } = useSelector((state) => state.knowledge);
+  const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllFAQ());
-  }, [dispatch]);
+    const getFaqs = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/knowledge/faq");
+        setFaqs(data.data || data.faqs || data);
+      } catch (err) {
+        console.error("Failed to fetch FAQs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getFaqs();
+  }, []);
+
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const userEmail = currentUser.email || "agent";
@@ -322,25 +336,50 @@ const AgentKnowledgeBase = () => {
 
   /* Actions */
   const handleSave = async (form) => {
-    if (editEntry) {
-      await dispatch(updateFAQ({ id: editEntry._id, data: form }));
-    } else {
-      await dispatch(createFAQ(form));
+    try {
+      if (editEntry) {
+        await axiosClient.put(`/knowledge/faq/${editEntry._id}`, form);
+      } else {
+        await axiosClient.post("/knowledge/faq", form);
+      }
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      console.error("Failed to save FAQ:", err);
     }
     setPage(1);
   };
+
   const handleDuplicate = async (row) => {
-    await dispatch(createFAQ({
-      question: row.question + " (copy)",
-      variant: row.variant,
-      answer: row.answer,
-      category: row.category,
-      status: row.status,
-    }));
+    try {
+      await axiosClient.post("/knowledge/faq", {
+        question: row.question + " (copy)",
+        variant: row.variant,
+        answer: row.answer,
+        category: row.category,
+        status: "Pending",
+      });
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      console.error("Failed to duplicate FAQ:", err);
+    }
   };
+
   const handleDelete = async (id) => {
-    await dispatch(deleteFAQ(id));
+    if (!window.confirm("Are you sure?")) return;
+    try {
+      await axiosClient.delete(`/knowledge/faq/${id}`);
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      console.error("Failed to delete FAQ:", err);
+    }
   };
+
 
   const openAdd = () => { setEditEntry(null); setPanelOpen(true); };
   const openEdit = (row) => { setEditEntry(row); setPanelOpen(true); };

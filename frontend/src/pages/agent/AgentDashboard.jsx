@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Ticket, MessageSquare, Users, BarChart2, TrendingUp, TrendingDown, Minus, ChevronDown, CheckCircle2, AlertCircle
-} from "lucide-react";
-import { fetchAllTickets, assignTicketToAgent } from "../../store/slices/ticketSlice";
-import { getAllChats } from "../../store/slices/chatSlice";
+import { Ticket, MessageSquare, BarChart2, TrendingUp, TrendingDown, Minus, CheckCircle2 } from "lucide-react";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
+
+
 
 const DeltaBadge = ({ delta, up }) => {
   if (up === null)
@@ -26,21 +25,44 @@ const DeltaBadge = ({ delta, up }) => {
 };
 
 const AgentDashboard = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { tickets, loading: ticketsLoading } = useSelector((state) => state.tickets);
-  const { chats, loading: chatsLoading } = useSelector((state) => state.chat);
-  const [grantingId, setGrantingId] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllTickets());
-    dispatch(getAllChats());
-  }, [dispatch]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const ticketRes = await axiosClient.get("/tickets/getAllTickets");
+        setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
+        
+        const chatRes = await axiosClient.get("/chat/getAllChats");
+        setChats(chatRes.data.data || chatRes.data.chats || chatRes.data);
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
 
   // Derive stats from live data
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user._id || user.id;
+
   const totalTickets = tickets?.length || 0;
   const resolvedTickets = tickets?.filter(t => t.status === "resolved" || t.status === "closed").length || 0;
-  const openEscalations = tickets?.filter(t => !t.assignedTo && t.status === "open") || [];
+  
+  // Now filter escalations that are automatically assigned to THIS agent
+  const myAssignedEscalations = tickets?.filter(t => 
+    t.assignedTo === userId && 
+    t.status === "open" &&
+    t.title === "Chat Escalation"
+  ) || [];
   
   const stats = [
     { label: "Chats Handled",    value: chats?.length || 0, delta: "Live", up: true,  Icon: MessageSquare },
@@ -49,75 +71,64 @@ const AgentDashboard = () => {
     { label: "Avg. Response",    value: "--",               delta: "N/A",  up: null,  Icon: BarChart2 },
   ];
 
-  const handleGrantRequest = async (ticket) => {
-    setGrantingId(ticket._id);
-    try {
-      const userStr = localStorage.getItem("user");
-      const userObj = userStr ? JSON.parse(userStr) : null;
-      const agentId = userObj?._id || userObj?.id;
-
-      await dispatch(assignTicketToAgent({ id: ticket._id, agentId })).unwrap();
-      navigate("/agent/chat", { state: { chatId: ticket.chatId } });
-    } catch (error) {
-      console.error("Failed to grant request:", error);
-    } finally {
-      setGrantingId(null);
-    }
+  const handleJoinChat = (ticket) => {
+    navigate("/agent/chat", { state: { chatId: ticket.chatId } });
   };
 
-
   return (
-    <main data-lenis-prevent style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-
-      {/* Incoming Escalations (NEW) */}
-      {openEscalations.length > 0 && (
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "16px",
-            padding: "20px 24px",
-            marginBottom: "20px",
-            boxShadow: "0 2px 12px rgba(239,68,68,0.15)",
-            border: "1px solid #fee2e2"
-          }}
-        >
+    <>
+      {loading && <Loader />}
+      <main data-lenis-prevent style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        {/* Auto-Assigned Escalations */}
+        {myAssignedEscalations.length > 0 && (
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "16px",
+              padding: "20px 24px",
+              marginBottom: "20px",
+              boxShadow: "0 4px 20px rgba(4,114,198,0.12)",
+              border: "1px solid #e0f2fe",
+              animation: "pulse 2s infinite"
+            }}
+          >
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-            <AlertCircle color="#ef4444" size={20} />
-            <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#111827" }}>
-              Incoming Escalations ({openEscalations.length})
+            <div style={{ width: 10, height: 10, background: "#0ea5e9", borderRadius: "50%" }}></div>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#0369a1" }}>
+              New Assigned Chats ({myAssignedEscalations.length})
             </h2>
           </div>
           
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {openEscalations.map((ticket) => (
-              <div key={ticket._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fef2f2", padding: "16px", borderRadius: "12px" }}>
+            {myAssignedEscalations.map((ticket) => (
+              <div key={ticket._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f0f9ff", padding: "16px", borderRadius: "12px", border: "1px solid #bae6fd" }}>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#991b1b" }}>{ticket.title}</h4>
-                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#b91c1c" }}>{ticket.description}</p>
+                  <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#0c4a6e" }}>{ticket.title}</h4>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#075985" }}>{ticket.description}</p>
                 </div>
                 <button
-                  onClick={() => handleGrantRequest(ticket)}
-                  disabled={grantingId === ticket._id}
+                  onClick={() => handleJoinChat(ticket)}
                   style={{
-                    background: "#ef4444",
+                    background: "#0ea5e9",
                     color: "white",
                     border: "none",
-                    padding: "8px 16px",
+                    padding: "8px 20px",
                     borderRadius: "8px",
                     fontSize: "13px",
                     fontWeight: 600,
-                    cursor: grantingId === ticket._id ? "not-allowed" : "pointer",
-                    opacity: grantingId === ticket._id ? 0.7 : 1,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(14,165,233,0.3)",
                     transition: "all 0.2s"
                   }}
                 >
-                  {grantingId === ticket._id ? "Granting..." : "Grant Request"}
+                  Join Chat
                 </button>
               </div>
             ))}
           </div>
         </div>
       )}
+
 
       {/* Stat cards */}
       <div
@@ -190,7 +201,7 @@ const AgentDashboard = () => {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {chatsLoading ? (
+            {loading ? (
               <p style={{ fontSize: "12px", color: "#5a7a8a" }}>Loading chats...</p>
             ) : chats && chats.length > 0 ? (
               chats.slice(0, 5).map((chat, i) => (
@@ -230,6 +241,7 @@ const AgentDashboard = () => {
 
       </div>
     </main>
+    </>
   );
 };
 

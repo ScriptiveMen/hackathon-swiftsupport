@@ -4,9 +4,8 @@ import {
   ChevronLeft, ChevronRight, X, Ticket as TicketIcon,
   AlertCircle, CheckCircle2, Clock, MessageSquare, Download
 } from "lucide-react";
-import { useSelector, useDispatch } from "react-redux";
-import { fetchAllTickets, updateTicketStatus, assignTicketToAgent } from "../../store/slices/ticketSlice";
-import { fetchAgents } from "../../store/slices/authSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../common/Loader.jsx";
 
 const PRIORITIES = ["All", "Low", "Medium", "High", "Urgent"];
 const STATUSES = ["All", "Open", "In Progress", "Resolved", "Closed"];
@@ -122,14 +121,29 @@ const RightPanel = ({ open, onClose, entry, onSave, agents }) => {
 
 /* ── Main Component ── */
 export default function Tickets() {
-  const dispatch = useDispatch();
-  const { tickets, loading } = useSelector(state => state.tickets);
-  const { agents } = useSelector(state => state.auth);
+  const [tickets, setTickets] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllTickets());
-    dispatch(fetchAgents());
-  }, [dispatch]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const ticketRes = await axiosClient.get("/tickets/getAllTickets");
+        setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
+        
+        const agentRes = await axiosClient.get("/auth/agents");
+        setAgents(agentRes.data.agents || agentRes.data.data || agentRes.data);
+      } catch (err) {
+        console.error("Failed to fetch tickets/agents:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
 
   const [search, setSearch]         = useState("");
   const [priorityFilter, setPriorityFilter] = useState("All");
@@ -164,19 +178,25 @@ export default function Tickets() {
 
   const handleSave = async (form) => {
     if (editEntry) {
-      if (form.status !== editEntry.status) {
-        await dispatch(updateTicketStatus({ id: editEntry._id, status: form.status }));
-      }
-      if (form.assignedTo !== editEntry.assignedTo) {
-        const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
-        // The backend expects an agentId for assignment.
-        if (agentId) {
-          await dispatch(assignTicketToAgent({ id: editEntry._id, agentId }));
+      try {
+        if (form.status !== editEntry.status) {
+          await axiosClient.put(`/tickets/updateTicketStatus/${editEntry._id}`, { status: form.status });
         }
+        if (form.assignedTo !== (editEntry.assignedTo?._id || editEntry.assignedTo || "Unassigned")) {
+          const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
+          if (agentId) {
+            await axiosClient.put(`/tickets/ticketAssginedToAgent/${editEntry._id}`, { agentId });
+          }
+        }
+        // Refresh
+        const { data } = await axiosClient.get("/tickets/getAllTickets");
+        setTickets(data.tickets || data.data || data);
+      } catch (err) {
+        console.error("Failed to update ticket:", err);
       }
-      // If we had priority updates in backend we would dispatch them here too.
     }
   };
+
 
   const openEdit = row => { 
     setEditEntry(row);  

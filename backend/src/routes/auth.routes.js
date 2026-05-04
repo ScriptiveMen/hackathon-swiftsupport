@@ -32,8 +32,10 @@ router.get(
 );
 
 router.get("/getAllUsers", authMiddleware, authControllers.getAllUsers);
+router.get("/users", authMiddleware, authControllers.getAllUsers);
 
 // Get All agents
 router.get("/getAllAgents", authMiddleware, authControllers.getAllAgents);
+router.get("/agents", authMiddleware, authControllers.getAllAgents);
 
 module.exports = router;

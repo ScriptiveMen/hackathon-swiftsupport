@@ -1,14 +1,8 @@
-import React, { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
+import axiosClient from "../../api/axiosClient";
 import {
-  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
-import {
-  Ticket, MessageSquare, Users, BarChart2, TrendingUp, TrendingDown, Minus, ChevronDown, HelpCircle,
+  Ticket, MessageSquare, Users, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
-import { fetchAllTickets } from "../../store/slices/ticketSlice";
-import { getAllChats } from "../../store/slices/chatSlice";
-import { fetchAllUsers } from "../../store/slices/authSlice";
 
 const DeltaBadge = ({ delta, up }) => {
   if (up === null)
@@ -29,16 +23,28 @@ const DeltaBadge = ({ delta, up }) => {
 };
 
 const AdminMainContent = () => {
-  const dispatch = useDispatch();
-  const { tickets } = useSelector((state) => state.tickets);
-  const { chats } = useSelector((state) => state.chat);
-  const { users } = useSelector((state) => state.auth);
-
+  const [tickets, setTickets] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllTickets());
-    dispatch(getAllChats());
-    dispatch(fetchAllUsers());
-  }, [dispatch]);
+    const fetchData = async () => {
+      try {
+        const ticketRes = await axiosClient.get("/tickets/getAllTickets");
+        setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
+
+        const chatRes = await axiosClient.get("/chat/all");
+        setChats(chatRes.data.chats || chatRes.data.data || chatRes.data);
+
+        const userRes = await axiosClient.get("/auth/users");
+        setUsers(userRes.data.users || userRes.data.data || userRes.data);
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      }
+    };
+    fetchData();
+  }, []);
+
 
   const totalAgents = users?.filter(u => u.role === "agent").length || 0;
   const totalCustomers = users?.filter(u => u.role === "customer").length || 0;

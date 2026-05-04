@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { useDispatch, useSelector } from "react-redux";
-import { registerUser, clearError } from "../../store/slices/authSlice.js";
+import { useNavigate } from "react-router-dom";
+import axiosClient from "../../api/axiosClient.js";
+
+
 
 export default function Register() {
   const [activeTab, setActiveTab] = useState("signup");
@@ -10,38 +11,43 @@ export default function Register() {
     email: "",
     password: "",
     role: "Admin", // Default to Admin as requested
-    organization: "Acme Corp",
+    organizationName: "Acme Corp",
   });
   
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error, user } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    if (user) {
-      const role = user.role?.toLowerCase();
-      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
-    }
-  }, [user, navigate]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
 
   const switchTab = (tab) => {
     setActiveTab(tab);
-    dispatch(clearError());
+    setError(null);
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.email || !signupForm.password) {
-      return;
+    if (!signupForm.name || !signupForm.email || !signupForm.password) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axiosClient.post("/auth/register", signupForm);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      
+      const role = data.user.role?.toLowerCase();
+      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
+    } catch (err) {
+      console.error("Registration Error:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false);
     }
-    dispatch(registerUser(signupForm)).then((result) => {
-      if (registerUser.fulfilled.match(result)) {
-        navigate("/login");
-      }
-    });
   };
+
+
+
 
   /* ── reusable styles ──────────────────────────────────── */
   const inputCls =
@@ -224,13 +230,14 @@ export default function Register() {
                   <BriefIcon />
                 </span>
                 <select
-                  value={signupForm.organization}
+                  value={signupForm.organizationName}
                   onChange={(e) =>
                     setSignupForm({
                       ...signupForm,
-                      organization: e.target.value,
+                      organizationName: e.target.value,
                     })
                   }
+
                   className="w-full bg-white border border-[#0bbaff]/30 rounded-lg pl-10 pr-8 py-2.5 text-[13.5px] text-[#1e3a4a] outline-none appearance-none cursor-pointer focus:border-[#04b8ff] focus:ring-2 focus:ring-[#04b8ff]/15 transition shadow-sm"
                 >
                   {orgs.map((o) => (

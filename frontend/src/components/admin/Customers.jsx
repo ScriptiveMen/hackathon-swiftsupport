@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../common/Loader.jsx";
 import {
   Search, Filter, Plus, MoreVertical, Edit2, Trash2,
   ChevronLeft, ChevronRight, X, Mail, Phone, Globe,
   CheckCircle, Clock, UserCircle, Star, Download
 } from "lucide-react";
-import { fetchAllUsers } from "../../store/slices/authSlice";
 
 const PLANS   = ["All", "Starter", "Pro", "Enterprise"];
 const STATUSES = ["All", "Active", "Inactive"];
@@ -29,12 +29,25 @@ const Stars = ({ n }) => (
 
 /* ── Main Component ── */
 const Customers = () => {
-  const dispatch = useDispatch();
-  const { users, loading } = useSelector((state) => state.auth);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllUsers());
-  }, [dispatch]);
+    const getUsers = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/auth/users");
+        setUsers(data.users || data.data || data);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUsers();
+  }, []);
+
 
   // Filter only customers
   const customers = users?.filter(u => u.role === "customer") || [];

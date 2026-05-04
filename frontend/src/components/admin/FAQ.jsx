@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../common/Loader.jsx";
 import {
   Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X, ChevronLeft,
   ChevronRight, CheckCircle, Clock, Tag, BookOpen, Download, AlertCircle,
 } from "lucide-react";
-import { fetchAllFAQ, createFAQ, updateFAQ, deleteFAQ } from "../../store/slices/knowledgeSlice";
+
 
 const Toast = ({ show, message, type = "success", onClose }) => {
   useEffect(() => {
@@ -339,14 +340,26 @@ const menuBtnStyle = (color) => ({
   fontFamily: "'Inter', sans-serif",
 });
 
-/* ── Main FAQ Component ──────────────────────────────────────────── */
+/* ── Main Component ──────────────────────────────────────────────── */
 const FAQ = () => {
-  const dispatch = useDispatch();
-  const { faqs, loading } = useSelector((state) => state.knowledge);
+  const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAllFAQ());
-  }, [dispatch]);
+    const fetchFaqs = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/knowledge/faq");
+        setFaqs(data.data || data.faqs || data);
+      } catch (err) {
+        console.error("Failed to fetch FAQs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFaqs();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
@@ -383,12 +396,19 @@ const FAQ = () => {
 
   /* Actions */
   const handleSave = async (form) => {
-    if (editEntry) {
-      await dispatch(updateFAQ({ id: editEntry._id, data: form }));
-      showToast("Entry updated successfully!");
-    } else {
-      await dispatch(createFAQ(form));
-      showToast("Entry added successfully!");
+    try {
+      if (editEntry) {
+        await axiosClient.put(`/knowledge/faq/${editEntry._id}`, form);
+        showToast("Entry updated successfully!");
+      } else {
+        await axiosClient.post("/knowledge/faq", form);
+        showToast("Entry added successfully!");
+      }
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Action failed.", "error");
     }
     setPage(1);
   };
@@ -397,17 +417,32 @@ const FAQ = () => {
     const copyForm = {
       question: row.question + " (copy)",
       variant: row.variant,
-      answer: row.answer,
       category: row.category,
-      status: row.status
+      answer: row.answer,
+      status: "Pending"
     };
-    await dispatch(createFAQ(copyForm));
-    showToast("Entry duplicated successfully!");
+    try {
+      await axiosClient.post("/knowledge/faq", copyForm);
+      showToast("Entry duplicated!");
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      showToast("Failed to duplicate.", "error");
+    }
   };
 
   const handleDelete = async (id) => {
-    await dispatch(deleteFAQ(id));
-    showToast("Entry deleted successfully!", "error");
+    if (!window.confirm("Are you sure you want to delete this FAQ?")) return;
+    try {
+      await axiosClient.delete(`/knowledge/faq/${id}`);
+      showToast("Entry deleted.");
+      // Refresh
+      const { data } = await axiosClient.get("/knowledge/faq");
+      setFaqs(data.data || data.faqs || data);
+    } catch (err) {
+      showToast("Delete failed.", "error");
+    }
   };
 
   const openAdd = () => {

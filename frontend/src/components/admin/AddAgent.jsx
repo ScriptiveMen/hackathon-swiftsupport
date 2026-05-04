@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchAgents, registerUser } from "../../store/slices/authSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../common/Loader.jsx";
 import {
   Search, Filter, Plus, MoreVertical, Edit2, Trash2, ChevronLeft, ChevronRight,
   X, UserPlus, CheckCircle, Clock, Briefcase, Download, Star, Shield, ShieldCheck, Bell,
 } from "lucide-react";
+
 
 
 /* ── Toast Component ── */
@@ -620,12 +621,25 @@ const ActionMenu = ({ id, openId, setOpenId, onEdit, onDelete }) => {
 
 /* ── Main Component ── */
 const AddAgent = () => {
-  const dispatch = useDispatch();
-  const { agents, loading } = useSelector((state) => state.auth);
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Data Fetching
   useEffect(() => {
-    dispatch(fetchAgents());
-  }, [dispatch]);
+    const getAgents = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosClient.get("/auth/agents");
+        setAgents(data.agents || data.data || data);
+      } catch (err) {
+        console.error("Failed to fetch agents:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getAgents();
+  }, []);
+
 
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
@@ -668,21 +682,33 @@ const AddAgent = () => {
 
   const handleSave = async (form) => {
     if (editEntry) {
-      // Edit not wired to API yet — show informational toast
-      showToast("Profile update saved locally.", "success");
+      // Edit logic using axiosClient
+      try {
+        const agentId = editEntry._id || editEntry.id;
+        await axiosClient.put(`/auth/updateAgent/${agentId}`, form);
+        showToast("Profile update saved successfully.", "success");
+        // Re-fetch agents
+        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        setAgents(fetchRes.agents || fetchRes.data || fetchRes);
+      } catch (err) {
+        showToast(err.response?.data?.message || "Failed to update agent.", "error");
+      }
     } else {
       // Register new agent via API
-      const result = await dispatch(registerUser({ ...form, role: "agent" }));
-      if (registerUser.fulfilled.match(result)) {
+      try {
+        await axiosClient.post("/auth/register", { ...form, role: "agent" });
         showToast("Agent added successfully!");
-        dispatch(fetchAgents()); // Refresh list
-      } else {
-        showToast(result.payload || "Failed to add agent.", "error");
+        // Re-fetch agents
+        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        setAgents(fetchRes.agents || fetchRes.data || fetchRes);
+      } catch (err) {
+        showToast(err.response?.data?.message || "Failed to add agent.", "error");
         return;
       }
     }
     setPage(1);
   };
+
 
   const handleDelete = async (id) => {
     showToast("Delete not supported via UI yet.", "error");

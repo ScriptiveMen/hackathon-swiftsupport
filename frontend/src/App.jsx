@@ -1,8 +1,10 @@
-import React, { useEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Lenis from "lenis";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchCurrentUser } from "./store/slices/authSlice.js";
+import axiosClient from "./api/axiosClient.js";
+
+
+import Loader from "./components/common/Loader.jsx";
 
 // ── Eagerly loaded (landing page — needs fast first paint) ──────────
 import Home from "./pages/common/Home.jsx";
@@ -43,14 +45,34 @@ const PageLoader = () => (
 
 const App = () => {
     const location = useLocation();
-    const dispatch = useDispatch();
-    const { token, user, loading } = useSelector((state) => state.auth);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+    // Data Fetching
     useEffect(() => {
-        if (token && !user) {
-            dispatch(fetchCurrentUser());
-        }
-    }, [token, user, dispatch]);
+        const verifySession = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setIsInitialLoading(false);
+                return;
+            }
+
+            try {
+                const { data } = await axiosClient.get("/auth/getUser");
+                const userData = data.data || data.user || data;
+                localStorage.setItem("user", JSON.stringify(userData));
+            } catch (err) {
+                if (err.response?.status !== 401) {
+                    console.error("Session Verification Error:", err.response?.data || err.message);
+                }
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+            } finally {
+                setIsInitialLoading(false);
+            }
+        };
+        verifySession();
+    }, []);
+
 
     useEffect(() => {
         // Disable Lenis smooth scrolling on dashboard routes so native nested scrolling works
@@ -80,11 +102,12 @@ const App = () => {
         };
     }, [location.pathname]);
 
-    if (loading && token && !user) {
-        return <PageLoader />;
+    if (isInitialLoading) {
+        return <Loader />;
     }
 
     return (
+
         <div>
             <Suspense fallback={<PageLoader />}>
                 <Routes>
