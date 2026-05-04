@@ -6,7 +6,6 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const xssClean = require("xss-clean");
 const hpp = require("hpp");
 
 const authRoutes = require("./routes/auth.routes.js");
@@ -35,7 +34,6 @@ app.use(
     }),
 );
 
-app.use(xssClean());
 app.use(hpp());
 
 app.get("/", (req, res) => {
