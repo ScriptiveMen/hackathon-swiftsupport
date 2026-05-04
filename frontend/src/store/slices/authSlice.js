@@ -71,6 +71,18 @@ export const fetchAgents = createAsyncThunk(
   },
 );
 
+export const fetchAllUsers = createAsyncThunk(
+  "auth/fetchAllUsers",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosClient.get("/auth/getAllUsers");
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || "Failed to fetch users");
+    }
+  }
+);
+
 /* ── Slice ──────────────────────────────────────────────────────────────── */
 
 const initialState = {
@@ -78,6 +90,7 @@ const initialState = {
   token: localStorage.getItem("token") || null,
   organizations: [],
   agents: [],
+  users: [],
   loading: false,
   error: null,
 };
@@ -144,6 +157,17 @@ const authSlice = createSlice({
       /* Fetch Agents */
       .addCase(fetchAgents.fulfilled, (state, action) => {
         state.agents = action.payload.agents || action.payload;
+      })
+      /* Fetch All Users */
+      .addCase(fetchAllUsers.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchAllUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.users = action.payload.users || action.payload;
+      })
+      .addCase(fetchAllUsers.rejected, (state, action) => {
+        state.loading = false;
       });
   },
 });

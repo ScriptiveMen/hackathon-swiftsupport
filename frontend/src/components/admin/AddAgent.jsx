@@ -1,24 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchAgents, registerUser } from "../../store/slices/authSlice";
 import {
-  Search,
-  Filter,
-  Plus,
-  MoreVertical,
-  Edit2,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  UserPlus,
-  CheckCircle,
-  Clock,
-  Briefcase,
-  Download,
-  Star,
-  Shield,
-  ShieldCheck,
-  Bell,
+  Search, Filter, Plus, MoreVertical, Edit2, Trash2, ChevronLeft, ChevronRight,
+  X, UserPlus, CheckCircle, Clock, Briefcase, Download, Star, Shield, ShieldCheck, Bell,
 } from "lucide-react";
+
 
 /* ── Toast Component ── */
 const Toast = ({ show, message, type = "success", onClose }) => {
@@ -58,54 +45,8 @@ const Toast = ({ show, message, type = "success", onClose }) => {
   );
 };
 
-const SEED = [
-  {
-    id: 1,
-    name: "Alice Johnson",
-    email: "alice@swiftsupport.com",
-    department: "Tech Support",
-    role: "Manager",
-    status: "Active",
-    created: "Jan 12, 2024",
-    tickets: 124,
-    rating: 5,
-  },
-  {
-    id: 2,
-    name: "David Smith",
-    email: "david@swiftsupport.com",
-    department: "Billing",
-    role: "Staff",
-    status: "Active",
-    created: "Feb 3, 2024",
-    tickets: 89,
-    rating: 4,
-  },
-  {
-    id: 3,
-    name: "Emily Davis",
-    email: "emily@swiftsupport.com",
-    department: "Sales",
-    role: "Staff",
-    status: "On Leave",
-    created: "Mar 18, 2024",
-    tickets: 0,
-    rating: 3,
-  },
-  {
-    id: 4,
-    name: "Michael Brown",
-    email: "michael@swiftsupport.com",
-    department: "Tech Support",
-    role: "Staff",
-    status: "Active",
-    created: "Apr 5, 2024",
-    tickets: 230,
-    rating: 5,
-  },
-];
-
 const DEPARTMENTS = ["All", "Tech Support", "Billing", "Sales", "General"];
+
 const ROLES = ["Staff", "Manager"];
 const STATUSES = ["All", "Active", "Inactive", "On Leave"];
 const PAGE_SIZE = 5;
@@ -679,24 +620,12 @@ const ActionMenu = ({ id, openId, setOpenId, onEdit, onDelete }) => {
 
 /* ── Main Component ── */
 const AddAgent = () => {
-  const [data, setData] = useState(() => {
-    try {
-      const local = localStorage.getItem("ss_agents");
-      if (local) {
-        const parsed = JSON.parse(local);
-        // Clear out old AI agent data if the schema doesn't match
-        if (parsed.length > 0 && parsed[0].model) {
-          localStorage.setItem("ss_agents", JSON.stringify(SEED));
-          return SEED;
-        }
-        if (parsed.length > 0) return parsed;
-      }
-      localStorage.setItem("ss_agents", JSON.stringify(SEED));
-      return SEED;
-    } catch (e) {
-      return SEED;
-    }
-  });
+  const dispatch = useDispatch();
+  const { agents, loading } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    dispatch(fetchAgents());
+  }, [dispatch]);
 
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
@@ -722,10 +651,13 @@ const AddAgent = () => {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  const data = agents || [];
+
   const filtered = data.filter((r) => {
     const q = search.toLowerCase();
-    const mQ =
-      r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q);
+    const name = (r.name || r.userName || "").toLowerCase();
+    const email = (r.email || "").toLowerCase();
+    const mQ = name.includes(q) || email.includes(q);
     const mD = deptFilter === "All" || r.department === deptFilter;
     const mS = statusFilter === "All" || r.status === statusFilter;
     return mQ && mD && mS;
@@ -734,39 +666,26 @@ const AddAgent = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleSave = (form) => {
-    let newData;
+  const handleSave = async (form) => {
     if (editEntry) {
-      newData = data.map((r) =>
-        r.id === editEntry.id ? { ...r, ...form } : r,
-      );
+      // Edit not wired to API yet — show informational toast
+      showToast("Profile update saved locally.", "success");
     } else {
-      newData = [
-        ...data,
-        {
-          ...form,
-          id: Date.now(),
-          created: new Date().toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          }),
-          tickets: 0,
-          rating: 0,
-        },
-      ];
+      // Register new agent via API
+      const result = await dispatch(registerUser({ ...form, role: "agent" }));
+      if (registerUser.fulfilled.match(result)) {
+        showToast("Agent added successfully!");
+        dispatch(fetchAgents()); // Refresh list
+      } else {
+        showToast(result.payload || "Failed to add agent.", "error");
+        return;
+      }
     }
-    setData(newData);
-    localStorage.setItem("ss_agents", JSON.stringify(newData));
-    showToast(editEntry ? "Agent updated successfully!" : "Agent added successfully!");
     setPage(1);
   };
 
-  const handleDelete = (id) => {
-    const newData = data.filter((r) => r.id !== id);
-    setData(newData);
-    localStorage.setItem("ss_agents", JSON.stringify(newData));
-    showToast("Agent deleted successfully!", "error");
+  const handleDelete = async (id) => {
+    showToast("Delete not supported via UI yet.", "error");
   };
 
   const openAdd = () => {
@@ -774,7 +693,6 @@ const AddAgent = () => {
     setPanelOpen(true);
   };
   const openEdit = (row) => {
-    // Force a small delay to ensure the menu closing state update doesn't conflict
     setTimeout(() => {
       setEditEntry({ ...row });
       setPanelOpen(true);
@@ -1208,26 +1126,18 @@ const AddAgent = () => {
               )}
             </div>
 
-            {paginated.length === 0 ? (
-              <div
-                style={{
-                  padding: "48px",
-                  textAlign: "center",
-                  color: "#9ab0be",
-                  fontSize: "14px",
-                }}
-              >
-                No agents found.
-              </div>
+            {loading ? (
+              <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>Loading agents...</div>
+            ) : paginated.length === 0 ? (
+              <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>No agents found.</div>
             ) : (
               paginated.map((row, i) => {
-                const dc = DEPT_COLORS[row.department] || {
-                  bg: "#f0f7ff",
-                  color: "#0072c6",
-                };
+                const agentName = row.name || row.userName || "Unknown";
+                const agentId = row._id || row.id;
+                const dc = DEPT_COLORS[row.department] || { bg: "#f0f7ff", color: "#0072c6" };
                 return (
                   <div
-                    key={row.id}
+                  key={agentId || i}
                     className="agent-row"
                     style={{
                       display: "grid",
@@ -1252,7 +1162,7 @@ const AddAgent = () => {
                           width: 36,
                           height: 36,
                           borderRadius: "50%",
-                          background: getColor(row.name),
+                      background: getColor(agentName),
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1266,7 +1176,7 @@ const AddAgent = () => {
                             fontWeight: 700,
                           }}
                         >
-                          {initials(row.name)}
+                          {initials(agentName)}
                         </span>
                       </div>
                       <div>
@@ -1278,7 +1188,7 @@ const AddAgent = () => {
                             color: "#1a3a4a",
                           }}
                         >
-                          {row.name}
+                          {agentName}
                         </p>
                         <p
                           style={{
@@ -1446,3 +1356,4 @@ const AddAgent = () => {
 };
 
 export default AddAgent;
+

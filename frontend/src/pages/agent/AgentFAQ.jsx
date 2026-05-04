@@ -1,41 +1,49 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, Search, MessageCircleQuestion } from "lucide-react";
-
-const dummyFaqs = [
-  {
-    category: "General",
-    questions: [
-      { q: "How do I add a new AI Agent?", a: "Navigate to the Settings tab, click on 'Manage Agents', and select 'Add New'. You can then configure the agent's prompt, knowledge base, and model settings." },
-      { q: "What languages does the AI support?", a: "Currently, our models support over 50 languages including English, Spanish, French, German, and Mandarin. You can set the primary language in Agent Settings." },
-    ]
-  },
-  {
-    category: "Billing & Plans",
-    questions: [
-      { q: "How are messages counted towards my limit?", a: "A single message includes one user input and one AI response. If your agent is extremely verbose, it still counts as one message. Rate limits apply per minute." },
-      { q: "Can I upgrade my plan mid-month?", a: "Yes! If you upgrade, the amount will be prorated for the remainder of the month. Downgrades take effect at the start of the next billing cycle." },
-    ]
-  },
-  {
-    category: "Technical & API",
-    questions: [
-      { q: "What is the rate limit for the REST API?", a: "The standard API rate limit is 100 requests per minute per IP address. For enterprise plans, this limit is increased to 1000 RPM." },
-      { q: "How do web crawlers work?", a: "Web crawlers automatically scrape URLs you provide to build a custom knowledge base. They respect robots.txt and re-crawl your site every 24 hours to keep the AI updated." },
-    ]
-  }
-];
+import { fetchAllFAQ } from "../../store/slices/knowledgeSlice";
 
 const AgentFAQ = () => {
+  const dispatch = useDispatch();
+  const { faqs, loading } = useSelector((state) => state.knowledge);
   const [searchTerm, setSearchTerm] = useState("");
   const [openItems, setOpenItems] = useState({});
 
-  const toggleItem = (categoryIndex, questionIndex) => {
-    const key = `${categoryIndex}-${questionIndex}`;
-    setOpenItems(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  useEffect(() => {
+    dispatch(fetchAllFAQ());
+  }, [dispatch]);
+
+  const toggleItem = (id) => {
+    setOpenItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  // Group flat faqs array by category
+  const grouped = (faqs || []).reduce((acc, faq) => {
+    const cat = faq.category || "General";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(faq);
+    return acc;
+  }, {});
+
+  const sections = Object.entries(grouped).map(([category, questions]) => ({
+    category,
+    questions,
+  }));
+
+  // Filter by search
+  const filteredSections = sections
+    .map((section) => ({
+      ...section,
+      questions: section.questions.filter((faq) => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        return (
+          (faq.question?.toLowerCase() || "").includes(term) ||
+          (faq.answer?.toLowerCase() || "").includes(term)
+        );
+      }),
+    }))
+    .filter((section) => section.questions.length > 0);
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8 animate-fade-in-up">
@@ -46,12 +54,12 @@ const AgentFAQ = () => {
         </div>
         <h1 className="text-3xl font-bold text-slate-800 tracking-tight">How can we help?</h1>
         <p className="text-gray-500 max-w-xl mx-auto">Browse through our frequently asked questions or use the search bar below to find exactly what you're looking for.</p>
-        
+
         <div className="max-w-xl mx-auto relative mt-6">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search for answers..." 
+          <input
+            type="text"
+            placeholder="Search for answers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-6 py-4 bg-white border border-gray-200 rounded-2xl text-base shadow-sm focus:outline-none focus:border-[#1f88d9] focus:ring-2 focus:ring-blue-100 transition-all"
@@ -61,46 +69,46 @@ const AgentFAQ = () => {
 
       {/* FAQ Categories */}
       <div className="space-y-10">
-        {dummyFaqs.map((section, catIdx) => (
+        {loading ? (
+          <div className="text-center text-gray-400 py-16 text-base">Loading FAQs...</div>
+        ) : filteredSections.length === 0 ? (
+          <div className="text-center text-gray-400 py-16 text-base">
+            {searchTerm ? "No results found. Try a different search." : "No FAQs available yet."}
+          </div>
+        ) : filteredSections.map((section, catIdx) => (
           <div key={catIdx} className="space-y-4">
             <h2 className="text-xl font-bold text-slate-800 pl-2 border-l-4 border-[#1f88d9]">{section.category}</h2>
-            
-            <div className="space-y-3">
-              {section.questions.map((faq, qIdx) => {
-                const isOpen = openItems[`${catIdx}-${qIdx}`];
-                
-                // Very basic client-side search filter
-                if (searchTerm && !faq.q.toLowerCase().includes(searchTerm.toLowerCase()) && !faq.a.toLowerCase().includes(searchTerm.toLowerCase())) {
-                  return null;
-                }
 
+            <div className="space-y-3">
+              {section.questions.map((faq) => {
+                const isOpen = openItems[faq._id];
                 return (
-                  <div 
-                    key={qIdx} 
+                  <div
+                    key={faq._id}
                     className={`bg-white border transition-all duration-200 rounded-2xl overflow-hidden ${
-                      isOpen ? 'border-[#1f88d9] shadow-md shadow-blue-500/10' : 'border-gray-100 hover:border-gray-200 shadow-sm'
+                      isOpen ? "border-[#1f88d9] shadow-md shadow-blue-500/10" : "border-gray-100 hover:border-gray-200 shadow-sm"
                     }`}
                   >
-                    <button 
+                    <button
                       className="w-full px-6 py-5 text-left flex justify-between items-center focus:outline-none"
-                      onClick={() => toggleItem(catIdx, qIdx)}
+                      onClick={() => toggleItem(faq._id)}
                     >
-                      <span className={`font-semibold text-sm sm:text-base pr-8 ${isOpen ? 'text-[#1f88d9]' : 'text-slate-800'}`}>
-                        {faq.q}
+                      <span className={`font-semibold text-sm sm:text-base pr-8 ${isOpen ? "text-[#1f88d9]" : "text-slate-800"}`}>
+                        {faq.question}
                       </span>
-                      <ChevronDown 
-                        size={20} 
-                        className={`flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#1f88d9]' : 'text-gray-400'}`} 
+                      <ChevronDown
+                        size={20}
+                        className={`flex-shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180 text-[#1f88d9]" : "text-gray-400"}`}
                       />
                     </button>
-                    
-                    <div 
+
+                    <div
                       className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${
-                        isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'
+                        isOpen ? "max-h-96 pb-5 opacity-100" : "max-h-0 opacity-0"
                       }`}
                     >
                       <p className="text-gray-600 text-sm leading-relaxed border-t border-gray-50 pt-4">
-                        {faq.a}
+                        {faq.answer || "No answer provided yet."}
                       </p>
                     </div>
                   </div>
@@ -110,7 +118,7 @@ const AgentFAQ = () => {
           </div>
         ))}
       </div>
-      
+
       {/* Footer Contact */}
       <div className="mt-12 bg-gradient-to-r from-blue-50 to-[#f4f7fb] rounded-3xl p-8 text-center border border-blue-100">
         <h3 className="text-lg font-bold text-slate-800 mb-2">Still have questions?</h3>
@@ -119,7 +127,6 @@ const AgentFAQ = () => {
           Contact Support
         </button>
       </div>
-
     </div>
   );
 };

@@ -7,6 +7,12 @@ export default defineConfig({
     server: {
     allowedHosts: [
       "making-paving-hangnail.ngrok-free.dev"
-    ]
+    ],
+    proxy: {
+      '/api': {
+        target: 'https://hackathon-swiftsupport.vercel.app',
+        changeOrigin: true,
+      }
+    }
   }
 });

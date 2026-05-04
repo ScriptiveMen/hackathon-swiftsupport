@@ -61,13 +61,13 @@ const CustomerChat = () => {
     setMessages([...messages, newMsg]);
     
     // Dispatch to AI route
-    dispatch(getAIResponse({ question: inputMsg }));
+    dispatch(getAIResponse({ question: inputMsg, chatId: activeChatId }));
     setInputMsg("");
   };
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto p-4 md:py-8 font-[Inter,sans-serif]">
-      <div className="bg-white border border-gray-100 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] flex-1 flex flex-col overflow-hidden relative">
+    <div className="flex flex-col h-[calc(100vh-80px)] mt-[80px] max-w-4xl mx-auto p-4 md:py-6 font-[Inter,sans-serif]">
+      <div className="bg-white border border-gray-100 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] flex-1 flex flex-col overflow-hidden relative min-h-0">
         
         {/* Chat Header */}
         <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">

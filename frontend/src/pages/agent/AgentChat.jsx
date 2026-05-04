@@ -1,23 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { Send, MoreVertical, Search, Paperclip, CheckCheck } from "lucide-react";
 import { getAllChats, getChatById } from "../../store/slices/chatSlice";
 
 const AgentChat = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
   const { chats, activeChatMessages, activeChatId, loading } = useSelector((state) => state.chat);
   
   const [activeChat, setActiveChat] = useState(null);
   const [inputMsg, setInputMsg] = useState("");
 
-  useEffect(() => {
-    dispatch(getAllChats());
-  }, [dispatch]);
-
   const handleChatClick = (chat) => {
     setActiveChat(chat);
     dispatch(getChatById(chat._id));
   };
+
+  useEffect(() => {
+    dispatch(getAllChats()).unwrap().then((fetchedChats) => {
+      const routedChatId = location.state?.chatId;
+      if (routedChatId) {
+        const chatToSelect = fetchedChats.find(c => c._id === routedChatId);
+        if (chatToSelect) {
+          handleChatClick(chatToSelect);
+        }
+      }
+    }).catch(console.error);
+  }, [dispatch, location.state]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();

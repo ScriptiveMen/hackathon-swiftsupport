@@ -1,37 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
-  Search,
-  Filter,
-  Plus,
-  MoreVertical,
-  Edit2,
-  Copy,
-  Trash2,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle,
-  Clock,
-  Tag,
-  BookOpen,
-  Download,
+  Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X,
+  ChevronLeft, ChevronRight, CheckCircle, Clock, BookOpen, Download,
 } from "lucide-react";
+import { fetchAllFAQ, createFAQ, updateFAQ, deleteFAQ } from "../../store/slices/knowledgeSlice";
 
-/* ── Seed Data ───────────────────────────────────────────────────── */
-const SEED = [
-  { id: 1, question: "How do I reset my account password if I lost access to my email?", variant: "I forgot my password and email, help.", category: "Login & Security", status: "Synced", owner: "admin" },
-  { id: 2, question: "What is the refund policy for annual enterprise subscriptions?", variant: "Can I get a refund on yearly plan?", category: "Billing", status: "Synced", owner: "admin" },
-  { id: 3, question: "How do I add a new agent to my team workspace?", variant: "Steps to invite a team member.", category: "User Management", status: "Pending", owner: "admin" },
-  { id: 4, question: "Are there any rate limits on the REST API for basic tiers?", variant: "API limit for standard plan.", category: "API & Dev", status: "Synced", owner: "admin" },
-  { id: 5, question: "Can I integrate SwiftSupport with Slack?", variant: "Slack integration setup guide.", category: "Integrations", status: "Synced", owner: "admin" },
-  { id: 6, question: "How do I export my chat history and ticket logs?", variant: "Download all support tickets.", category: "Export", status: "Pending", owner: "admin" },
-  { id: 7, question: "What languages does the AI chatbot support?", variant: "Multilingual bot support.", category: "AI & Bot", status: "Synced", owner: "admin" },
-  { id: 8, question: "How can I customize the chatbot widget appearance?", variant: "Change bot colors and logo.", category: "Customization", status: "Synced", owner: "admin" },
-  { id: 9, question: "Is two-factor authentication available?", variant: "Enable 2FA on my account.", category: "Login & Security", status: "Synced", owner: "admin" },
-  { id: 10, question: "How do I upgrade my subscription plan?", variant: "Switch from starter to pro.", category: "Billing", status: "Pending", owner: "admin" },
-  { id: 11, question: "Can I white-label the support portal?", variant: "Remove SwiftSupport branding.", category: "Customization", status: "Synced", owner: "admin" },
-  { id: 12, question: "What analytics are available in the dashboard?", variant: "View ticket and message metrics.", category: "Analytics", status: "Synced", owner: "admin" },
-];
+
 
 const CATEGORIES = ["All", "Login & Security", "Billing", "User Management", "API & Dev", "Integrations", "Export", "AI & Bot", "Customization", "Analytics"];
 const STATUSES = ["All", "Synced", "Pending"];
@@ -308,14 +283,12 @@ const menuBtnStyle = (color) => ({
 
 /* ── Main Knowledge Base Component ───────────────────────────────── */
 const AgentKnowledgeBase = () => {
-  const [data, setData] = useState(() => {
-    try {
-      const local = localStorage.getItem("ss_faqs");
-      return local ? JSON.parse(local) : SEED;
-    } catch (e) {
-      return SEED;
-    }
-  });
+  const dispatch = useDispatch();
+  const { faqs, loading } = useSelector((state) => state.knowledge);
+
+  useEffect(() => {
+    dispatch(fetchAllFAQ());
+  }, [dispatch]);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const userEmail = currentUser.email || "agent";
@@ -336,11 +309,9 @@ const AgentKnowledgeBase = () => {
   }, []);
 
   /* Filter */
-  const filtered = data.filter(r => {
-    if (r.owner && r.owner !== "admin" && r.owner !== userEmail) return false;
-    
+  const filtered = (faqs || []).filter(r => {
     const q = search.toLowerCase();
-    const matchQ = r.question.toLowerCase().includes(q) || r.variant.toLowerCase().includes(q);
+    const matchQ = (r.question?.toLowerCase() || "").includes(q) || (r.variant?.toLowerCase() || "").includes(q);
     const matchC = catFilter === "All" || r.category === catFilter;
     const matchS = statusFilter === "All" || r.status === statusFilter;
     return matchQ && matchC && matchS;
@@ -350,26 +321,25 @@ const AgentKnowledgeBase = () => {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   /* Actions */
-  const handleSave = (form) => {
-    let newData;
+  const handleSave = async (form) => {
     if (editEntry) {
-      newData = data.map(r => r.id === editEntry.id ? { ...r, ...form } : r);
+      await dispatch(updateFAQ({ id: editEntry._id, data: form }));
     } else {
-      newData = [...data, { ...form, id: Date.now(), owner: userEmail }];
+      await dispatch(createFAQ(form));
     }
-    setData(newData);
-    localStorage.setItem("ss_faqs", JSON.stringify(newData));
     setPage(1);
   };
-  const handleDuplicate = (row) => {
-    const newData = [...data, { ...row, id: Date.now(), question: row.question + " (copy)", owner: userEmail }];
-    setData(newData);
-    localStorage.setItem("ss_faqs", JSON.stringify(newData));
+  const handleDuplicate = async (row) => {
+    await dispatch(createFAQ({
+      question: row.question + " (copy)",
+      variant: row.variant,
+      answer: row.answer,
+      category: row.category,
+      status: row.status,
+    }));
   };
-  const handleDelete = (id) => {
-    const newData = data.filter(r => r.id !== id);
-    setData(newData);
-    localStorage.setItem("ss_faqs", JSON.stringify(newData));
+  const handleDelete = async (id) => {
+    await dispatch(deleteFAQ(id));
   };
 
   const openAdd = () => { setEditEntry(null); setPanelOpen(true); };
@@ -477,13 +447,15 @@ const AgentKnowledgeBase = () => {
           </div>
 
           {/* Rows */}
-          {paginated.length === 0 ? (
+          {loading ? (
+            <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>Loading entries...</div>
+          ) : paginated.length === 0 ? (
             <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>
               No entries found. Try adjusting your filters.
             </div>
           ) : paginated.map((row, i) => (
             <div
-              key={row.id}
+              key={row._id}
               className="faq-row"
               style={{ display: "grid", gridTemplateColumns: "1fr 160px 130px 40px", padding: "14px 20px", borderBottom: i < paginated.length - 1 ? "1px solid #f5f9ff" : "none", alignItems: "center", transition: "background 0.15s" }}
             >
@@ -491,12 +463,7 @@ const AgentKnowledgeBase = () => {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                   <p style={{ margin: 0, fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
-                  {row.owner === userEmail && (
-                    <span style={{ fontSize: "10px", background: "#f0fdf4", color: "#16a34a", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>My FAQ</span>
-                  )}
-                  {row.owner === "admin" && (
-                    <span style={{ fontSize: "10px", background: "#f0f7ff", color: "#0072c6", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #dceefa", whiteSpace: "nowrap" }}>Global</span>
-                  )}
+                  <span style={{ fontSize: "10px", background: "#f0f7ff", color: "#0072c6", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #dceefa", whiteSpace: "nowrap" }}>Global</span>
                 </div>
                 <p style={{ margin: 0, fontSize: "11.5px", color: "#9ab0be", fontStyle: "italic" }}>Variant: {row.variant}</p>
               </div>
@@ -506,19 +473,15 @@ const AgentKnowledgeBase = () => {
               <div><StatusBadge status={row.status} /></div>
               {/* Actions */}
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                {row.owner === "admin" ? (
-                  <span style={{ fontSize: "11px", color: "#9ab0be", fontStyle: "italic", paddingRight: "10px" }}>Read-only</span>
-                ) : (
-                  <ActionMenu
-                    id={row.id}
-                    openId={openId}
-                    setOpenId={setOpenId}
-                    onEdit={() => openEdit(row)}
-                    onDuplicate={() => handleDuplicate(row)}
-                    onDelete={() => handleDelete(row.id)}
-                    openUp={i >= paginated.length - 2}
-                  />
-                )}
+                <ActionMenu
+                  id={row._id}
+                  openId={openId}
+                  setOpenId={setOpenId}
+                  onEdit={() => openEdit(row)}
+                  onDuplicate={() => handleDuplicate(row)}
+                  onDelete={() => handleDelete(row._id)}
+                  openUp={i >= paginated.length - 2}
+                />
               </div>
             </div>
           ))}

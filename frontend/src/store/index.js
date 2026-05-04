@@ -3,6 +3,7 @@ import authReducer from "./slices/authSlice";
 import ticketReducer from "./slices/ticketSlice";
 import aiReducer from "./slices/aiSlice";
 import chatReducer from "./slices/chatSlice";
+import knowledgeReducer from "./slices/knowledgeSlice";
 
 const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const store = configureStore({
     tickets: ticketReducer,
     ai: aiReducer,
     chat: chatReducer,
+    knowledge: knowledgeReducer,
   },
 });
 

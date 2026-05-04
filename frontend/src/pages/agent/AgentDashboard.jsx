@@ -1,62 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  Ticket,
-  MessageSquare,
-  Users,
-  BarChart2,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ChevronDown,
-  HelpCircle,
-  CheckCircle2,
+  Ticket, MessageSquare, Users, BarChart2, TrendingUp, TrendingDown, Minus, ChevronDown, CheckCircle2, AlertCircle
 } from "lucide-react";
+import { fetchAllTickets, assignTicketToAgent } from "../../store/slices/ticketSlice";
+import { getAllChats } from "../../store/slices/chatSlice";
 
-/* ─── Data ─────────────────────────────────────────────────────────────────── */
-const lineData = [
-  { month: "Jan", value: 800 },
-  { month: "Feb", value: 2100 },
-  { month: "Mar", value: 5400 },
-  { month: "Apr", value: 8800 },
-  { month: "May", value: 12400 },
-  { month: "Jun", value: 17200 },
-];
-
-const areaData = [
-  { day: "Mon", value: 0 },
-  { day: "Tue", value: 6000 },
-  { day: "Wed", value: 12000 },
-  { day: "Thu", value: 9000 },
-  { day: "Fri", value: 18000 },
-  { day: "Sat", value: 14000 },
-  { day: "Sun", value: 22000 },
-];
-
-const stats = [
-  { label: "Chats Handled",    value: "284",   delta: "+8%",   up: true,  Icon: MessageSquare },
-  { label: "Tickets Resolved", value: "139",   delta: "+14%",  up: true,  Icon: CheckCircle2 },
-  { label: "Customers Served", value: "1,120", delta: "-3%",   up: false, Icon: Users },
-  { label: "Avg. Response",    value: "1.4m",  delta: "Steady", up: null, Icon: BarChart2 },
-];
-
-const recentChats = [
-  { name: "John Doe",      msg: "I need help with my billing...",   time: "2m ago",  active: true  },
-  { name: "Sarah Smith",   msg: "How do I reset my password?",      time: "15m ago", active: true  },
-  { name: "Mike Johnson",  msg: "Thanks for the support!",          time: "1h ago",  active: false },
-];
-
-/* ─── Sub-components ────────────────────────────────────────────────────────── */
 const DeltaBadge = ({ delta, up }) => {
   if (up === null)
     return (
@@ -75,86 +25,97 @@ const DeltaBadge = ({ delta, up }) => {
   );
 };
 
-/* ─── Main Component ─────────────────────────────────────────────────────────── */
 const AgentDashboard = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { tickets, loading: ticketsLoading } = useSelector((state) => state.tickets);
+  const { chats, loading: chatsLoading } = useSelector((state) => state.chat);
+  const [grantingId, setGrantingId] = useState(null);
+
+  useEffect(() => {
+    dispatch(fetchAllTickets());
+    dispatch(getAllChats());
+  }, [dispatch]);
+
+  // Derive stats from live data
+  const totalTickets = tickets?.length || 0;
+  const resolvedTickets = tickets?.filter(t => t.status === "resolved" || t.status === "closed").length || 0;
+  const openEscalations = tickets?.filter(t => !t.assignedTo && t.status === "open") || [];
+  
+  const stats = [
+    { label: "Chats Handled",    value: chats?.length || 0, delta: "Live", up: true,  Icon: MessageSquare },
+    { label: "Tickets Resolved", value: resolvedTickets,    delta: "Live", up: true,  Icon: CheckCircle2 },
+    { label: "Total Tickets",    value: totalTickets,       delta: "Live", up: null,  Icon: Ticket },
+    { label: "Avg. Response",    value: "--",               delta: "N/A",  up: null,  Icon: BarChart2 },
+  ];
+
+  const handleGrantRequest = async (ticket) => {
+    setGrantingId(ticket._id);
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      await dispatch(assignTicketToAgent({ id: ticket._id, agentId: user.id })).unwrap();
+      navigate("/dashboard/chat", { state: { chatId: ticket.chatId } });
+    } catch (error) {
+      console.error("Failed to grant request:", error);
+    } finally {
+      setGrantingId(null);
+    }
+  };
+
   return (
     <main data-lenis-prevent style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
 
-      {/* Messages & Leads chart — same as Admin */}
-      <div
-        style={{
-          background: "linear-gradient(135deg,#3b9edd 0%,#0072c6 100%)",
-          borderRadius: "16px",
-          padding: "20px 24px",
-          marginBottom: "20px",
-          color: "#fff",
-        }}
-      >
+      {/* Incoming Escalations (NEW) */}
+      {openEscalations.length > 0 && (
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "12px",
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "20px 24px",
+            marginBottom: "20px",
+            boxShadow: "0 2px 12px rgba(239,68,68,0.15)",
+            border: "1px solid #fee2e2"
           }}
         >
-          <h2 style={{ fontSize: "15px", fontWeight: 700, margin: 0 }}>
-            Chat Activity
-          </h2>
-          <button
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              border: "none",
-              borderRadius: "8px",
-              color: "#fff",
-              fontSize: "12px",
-              padding: "5px 12px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            Last 6 months <ChevronDown size={13} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            <AlertCircle color="#ef4444" size={20} />
+            <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "#111827" }}>
+              Incoming Escalations ({openEscalations.length})
+            </h2>
+          </div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {openEscalations.map((ticket) => (
+              <div key={ticket._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fef2f2", padding: "16px", borderRadius: "12px" }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#991b1b" }}>{ticket.title}</h4>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#b91c1c" }}>{ticket.description}</p>
+                </div>
+                <button
+                  onClick={() => handleGrantRequest(ticket)}
+                  disabled={grantingId === ticket._id}
+                  style={{
+                    background: "#ef4444",
+                    color: "white",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: grantingId === ticket._id ? "not-allowed" : "pointer",
+                    opacity: grantingId === ticket._id ? 0.7 : 1,
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {grantingId === ticket._id ? "Granting..." : "Grant Request"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={lineData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "#fff",
-                border: "none",
-                borderRadius: "10px",
-                color: "#1a3a4a",
-                fontSize: "12px",
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke="#fff"
-              strokeWidth={2.5}
-              dot={{ r: 5, fill: "#fff", stroke: "#3b9edd", strokeWidth: 2 }}
-              activeDot={{ r: 7 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      )}
 
-      {/* Stat cards — same structure as Admin */}
+      {/* Stat cards */}
       <div
         style={{
           display: "grid",
@@ -200,94 +161,14 @@ const AgentDashboard = () => {
         ))}
       </div>
 
-      {/* Bottom row — same 1fr 1fr grid as Admin */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-
-        {/* Daily Chat Activity Area Chart */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+        {/* Recent Chats - Live Data */}
         <div
           style={{
             background: "#fff",
             borderRadius: "14px",
             padding: "18px",
-            boxShadow: "0 2px 12px rgba(4,114,198,0.08)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "14px",
-            }}
-          >
-            <h3 style={{ fontSize: "13px", fontWeight: 600, color: "#1a3a4a", margin: 0 }}>
-              Daily Chat Volume
-            </h3>
-            <button
-              style={{
-                background: "#f0f7ff",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "11px",
-                color: "#5a7a8a",
-                padding: "4px 10px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              This Week <ChevronDown size={12} />
-            </button>
-          </div>
-          <ResponsiveContainer width="100%" height={140}>
-            <AreaChart data={areaData}>
-              <defs>
-                <linearGradient id="colorChat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#04b8ff" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#04b8ff" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 10, fill: "#5a7a8a" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: "#5a7a8a" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "#fff",
-                  border: "none",
-                  borderRadius: "10px",
-                  fontSize: "11px",
-                  color: "#1a3a4a",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#04b8ff"
-                strokeWidth={2}
-                fill="url(#colorChat)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Recent Chats */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "14px",
-            padding: "18px",
-            boxShadow: "0 2px 12px rgba(4,114,198,0.08)",
+            boxShadow: "0 2px 12px rgba(4,114,198,0.08)"
           }}
         >
           <div
@@ -301,94 +182,44 @@ const AgentDashboard = () => {
             <h3 style={{ fontSize: "13px", fontWeight: 600, color: "#1a3a4a", margin: 0 }}>
               Recent Chats
             </h3>
-            <button
-              style={{
-                background: "#f0f7ff",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "11px",
-                color: "#5a7a8a",
-                padding: "4px 10px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              Sort by Recent <ChevronDown size={12} />
-            </button>
+            <span style={{ fontSize: "11px", color: "#5a7a8a" }}>{chats?.length || 0} Total</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {recentChats.map((chat, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "10px",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f7ff")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "50%",
-                      background: "#dbeafe",
-                      color: "#0072c6",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: "13px",
-                    }}
-                  >
-                    {chat.name.charAt(0)}
+            {chatsLoading ? (
+              <p style={{ fontSize: "12px", color: "#5a7a8a" }}>Loading chats...</p>
+            ) : chats && chats.length > 0 ? (
+              chats.slice(0, 5).map((chat, i) => (
+                <div
+                  key={chat._id || i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    background: "#f8fafc"
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: "13px", fontWeight: 600, color: "#1a3a4a" }}>
+                      Chat #{chat._id?.substring(0, 6)}
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#5a7a8a" }}>
+                      Status: <span style={{ textTransform: "capitalize", color: chat.status === "active" ? "#10b981" : "#5a7a8a" }}>{chat.status}</span>
+                    </p>
                   </div>
-                  {chat.active && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        right: 0,
-                        width: 10,
-                        height: 10,
-                        background: "#10b981",
-                        borderRadius: "50%",
-                        border: "2px solid #fff",
-                      }}
-                    />
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: "13px", fontWeight: 600, color: "#1a3a4a" }}>
-                    {chat.name}
-                  </p>
-                  <p
-                    style={{
-                      margin: "2px 0 0",
-                      fontSize: "11px",
-                      color: "#5a7a8a",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
+                  <button 
+                    onClick={() => navigate("/dashboard/chat", { state: { chatId: chat._id } })}
+                    style={{ background: "#f0f7ff", border: "none", color: "#0072c6", padding: "6px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer", fontWeight: 600 }}
                   >
-                    {chat.msg}
-                  </p>
+                    View Chat
+                  </button>
                 </div>
-                <span style={{ fontSize: "11px", color: "#9ab0be", whiteSpace: "nowrap" }}>
-                  {chat.time}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p style={{ fontSize: "12px", color: "#5a7a8a" }}>No recent chats found.</p>
+            )}
           </div>
         </div>
 
