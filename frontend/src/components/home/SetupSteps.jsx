@@ -95,10 +95,10 @@ export default function SetupSteps() {
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center flex flex-col gap-2 items-center mb-14">
           <ScrollFade delay={0} blur={4}>
             <div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-5"
+              className="inline-flex select-none items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-5"
               style={{
                 background: "rgba(4,184,255,0.10)",
                 border: "1px solid rgba(4,184,255,0.25)",
@@ -146,13 +146,13 @@ export default function SetupSteps() {
                   boxShadow: "0 4px 24px rgba(4,184,255,0.07)",
                 }}
               >
-                <div className="absolute top-5 right-5 text-[40px] font-black leading-none" style={{ color: `${color}12`, fontFamily: "'Switzer Extrabold', 'Inter', sans-serif" }}>
+                <div className="absolute top-5 right-5 text-[40px] font-black leading-none select-none" style={{ color: `${color}12`, fontFamily: "'Switzer Extrabold', 'Inter', sans-serif" }}>
                   {num}
                 </div>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${color}15`, color }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 select-none" style={{ background: `${color}15`, color }}>
                   {icon}
                 </div>
-                <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider mb-3" style={{ background: `${color}15`, color }}>
+                <div className="inline-flex select-none items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider mb-3" style={{ background: `${color}15`, color }}>
                   Step {num}
                 </div>
                 <h3 className="text-[18px] font-bold text-[#0a2a3a] mb-2">{title}</h3>

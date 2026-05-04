@@ -1,12 +1,47 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X,
-  ChevronLeft, ChevronRight, CheckCircle, Clock, BookOpen, Download,
+  Search, Filter, Plus, MoreVertical, Edit2, Copy, Trash2, X, ChevronLeft,
+  ChevronRight, CheckCircle, Clock, Tag, BookOpen, Download, AlertCircle,
 } from "lucide-react";
 import { fetchAllFAQ, createFAQ, updateFAQ, deleteFAQ } from "../../store/slices/knowledgeSlice";
 
+const Toast = ({ show, message, type = "success", onClose }) => {
+  useEffect(() => {
+    if (show) {
+      const t = setTimeout(onClose, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [show, onClose]);
 
+  if (!show) return null;
+
+  const isError = type === "error";
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "24px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: isError ? "#fff1f2" : "#f0fdf4",
+        color: isError ? "#e11d48" : "#16a34a",
+        padding: "12px 20px",
+        borderRadius: "12px",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        zIndex: 9999,
+        border: `1px solid ${isError ? "#fda4af" : "#bbf7d0"}`,
+        animation: "fadeUp 0.3s ease",
+      }}
+    >
+      {isError ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+      <span style={{ fontSize: "14px", fontWeight: 600 }}>{message}</span>
+    </div>
+  );
+};
 
 const CATEGORIES = ["All", "Login & Security", "Billing", "User Management", "API & Dev", "Integrations", "Export", "AI & Bot", "Customization", "Analytics"];
 const STATUSES = ["All", "Synced", "Pending"];
@@ -49,7 +84,7 @@ const RightPanel = ({ open, onClose, entry, onSave }) => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (entry) setForm({ question: entry.question, variant: entry.variant, answer: entry.answer || "", category: entry.category, status: entry.status });
+    if (entry) setForm({ question: entry.question, variant: entry.variant || "", answer: entry.answer || "", category: entry.category || "Billing", status: entry.status || "Synced" });
     else setForm({ question: "", variant: "", answer: "", category: "Billing", status: "Synced" });
     setErrors({});
   }, [entry, open]);
@@ -257,14 +292,37 @@ const ActionMenu = ({ id, openId, setOpenId, onEdit, onDuplicate, onDelete, open
       </button>
       {isOpen && (
         <div style={{ position: "absolute", right: 0, top: openUp ? "auto" : "30px", bottom: openUp ? "30px" : "auto", background: "#fff", borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.13)", border: "1px solid #e2eef8", width: "140px", zIndex: 100, overflow: "hidden", animation: "fadeDown 0.15s ease" }}>
-          <button onClick={() => { onEdit(); setOpenId(null); }} style={menuBtnStyle("#1a3a4a")}>
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onEdit();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#1a3a4a")}
+          >
             <Edit2 size={13} /> Edit
           </button>
-          <button onClick={() => { onDuplicate(); setOpenId(null); }} style={menuBtnStyle("#1a3a4a")}>
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#1a3a4a")}
+          >
             <Copy size={13} /> Duplicate
           </button>
-          <div style={{ height: "1px", background: "#f0f7ff", margin: "4px 0" }} />
-          <button onClick={() => { onDelete(); setOpenId(null); }} style={menuBtnStyle("#ef4444")}>
+          <div
+            style={{ height: "1px", background: "#f0f7ff", margin: "4px 0" }}
+          />
+          <button
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onDelete();
+              setOpenId(null);
+            }}
+            style={menuBtnStyle("#ef4444")}
+          >
             <Trash2 size={13} /> Delete
           </button>
         </div>
@@ -281,8 +339,8 @@ const menuBtnStyle = (color) => ({
   fontFamily: "'Inter', sans-serif",
 });
 
-/* ── Main Knowledge Base Component ───────────────────────────────── */
-const AgentKnowledgeBase = () => {
+/* ── Main FAQ Component ──────────────────────────────────────────── */
+const FAQ = () => {
   const dispatch = useDispatch();
   const { faqs, loading } = useSelector((state) => state.knowledge);
 
@@ -290,8 +348,6 @@ const AgentKnowledgeBase = () => {
     dispatch(fetchAllFAQ());
   }, [dispatch]);
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const userEmail = currentUser.email || "agent";
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -300,7 +356,12 @@ const AgentKnowledgeBase = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const filterRef = useRef(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
@@ -324,26 +385,42 @@ const AgentKnowledgeBase = () => {
   const handleSave = async (form) => {
     if (editEntry) {
       await dispatch(updateFAQ({ id: editEntry._id, data: form }));
+      showToast("Entry updated successfully!");
     } else {
       await dispatch(createFAQ(form));
+      showToast("Entry added successfully!");
     }
     setPage(1);
   };
+
   const handleDuplicate = async (row) => {
-    await dispatch(createFAQ({
+    const copyForm = {
       question: row.question + " (copy)",
       variant: row.variant,
       answer: row.answer,
       category: row.category,
-      status: row.status,
-    }));
-  };
-  const handleDelete = async (id) => {
-    await dispatch(deleteFAQ(id));
+      status: row.status
+    };
+    await dispatch(createFAQ(copyForm));
+    showToast("Entry duplicated successfully!");
   };
 
-  const openAdd = () => { setEditEntry(null); setPanelOpen(true); };
-  const openEdit = (row) => { setEditEntry(row); setPanelOpen(true); };
+  const handleDelete = async (id) => {
+    await dispatch(deleteFAQ(id));
+    showToast("Entry deleted successfully!", "error");
+  };
+
+  const openAdd = () => {
+    setEditEntry(null);
+    setPanelOpen(true);
+  };
+  const openEdit = (row) => {
+    // Clone to prevent direct state mutation
+    setTimeout(() => {
+      setEditEntry({ ...row });
+      setPanelOpen(true);
+    }, 10);
+  };
 
   const handleExportCSV = () => {
     if (!filtered || !filtered.length) return;
@@ -364,6 +441,7 @@ const AgentKnowledgeBase = () => {
     <>
       <style>{`
         @keyframes fadeDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) translateX(-50%); } to { opacity:1; transform:translateY(0) translateX(-50%); } }
         .faq-row:hover { background: #f8fbff !important; }
         .faq-search:focus { border-color: #0072c6 !important; outline: none; }
       `}</style>
@@ -448,7 +526,7 @@ const AgentKnowledgeBase = () => {
 
           {/* Rows */}
           {loading ? (
-            <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>Loading entries...</div>
+             <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>Loading entries...</div>
           ) : paginated.length === 0 ? (
             <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>
               No entries found. Try adjusting your filters.
@@ -463,7 +541,6 @@ const AgentKnowledgeBase = () => {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                   <p style={{ margin: 0, fontSize: "13.5px", fontWeight: 600, color: "#1a3a4a", lineHeight: 1.4 }}>{row.question}</p>
-                  <span style={{ fontSize: "10px", background: "#f0f7ff", color: "#0072c6", padding: "2px 6px", borderRadius: "4px", fontWeight: 600, border: "1px solid #dceefa", whiteSpace: "nowrap" }}>Global</span>
                 </div>
                 <p style={{ margin: 0, fontSize: "11.5px", color: "#9ab0be", fontStyle: "italic" }}>Variant: {row.variant}</p>
               </div>
@@ -519,8 +596,15 @@ const AgentKnowledgeBase = () => {
         entry={editEntry}
         onSave={handleSave}
       />
+
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast((t) => ({ ...t, show: false }))}
+      />
     </>
   );
 };
 
-export default AgentKnowledgeBase;
+export default FAQ;

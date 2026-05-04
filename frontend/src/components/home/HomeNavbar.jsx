@@ -18,6 +18,18 @@ export default function HomeNavbar() {
 
   const navLinks = ["Features", "Pricing", "Docs", "Blog"];
 
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const isLoggedIn = !!user;
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  };
+
   // ── Desktop entrance animation ────────────────────────────────────────────
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -69,6 +81,13 @@ export default function HomeNavbar() {
     });
   };
 
+  const handleDashboardRedirect = () => {
+    const role = user.role?.toLowerCase();
+    if (role === "admin") navigate("/admin");
+    else if (role === "agent") navigate("/agent");
+    else navigate("/customer/chat");
+  };
+
   return (
     <>
       <header ref={headerRef} className="fixed select-none top-0 left-0 right-0 z-50">
@@ -90,7 +109,6 @@ export default function HomeNavbar() {
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => {
                 navigate("/");
-                setMobileOpen(false);
               }}
             >
               <div
@@ -105,7 +123,7 @@ export default function HomeNavbar() {
                 </svg>
               </div>
               <span
-                className="text-[17px] font-bold text-[#0a2a3a] tracking-tight"
+                className="text-[17px] font-bold text-[#0a2a3a] tracking-tight select-none"
                 style={{ fontFamily: "'Switzer Extrabold', 'Inter', sans-serif" }}
               >
                 SwiftSupport
@@ -134,79 +152,142 @@ export default function HomeNavbar() {
                   {link}
                 </a>
               ))}
+              {isLoggedIn && (
+                <button
+                  onClick={() => navigate("/customer/chat")}
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: "13.5px",
+                    fontWeight: 700,
+                    color: "#04b8ff",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  Chat 
+                </button>
+              )}
             </nav>
 
             {/* Desktop CTA Buttons */}
             <div ref={ctaRef} className="hidden md:flex items-center gap-3">
-              <button
-                onClick={() => navigate("/login")}
-                style={{
-                  fontFamily: FONT,
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#1e3a4a",
-                  border: "1.5px solid rgba(4,184,255,0.45)",
-                  background: "transparent",
-                  padding: "6px 20px",
-                  borderRadius: "999px",
-                  cursor: "pointer",
-                  transition: "color 0.2s, border-color 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  gsap.to(e.currentTarget, {
-                    color: "#04b8ff",
-                    borderColor: "#04b8ff",
-                    scale: 1.04,
-                    duration: 0.2,
-                    ease: "power2.out",
-                  })
-                }
-                onMouseLeave={(e) =>
-                  gsap.to(e.currentTarget, {
-                    color: "#1e3a4a",
-                    borderColor: "rgba(4,184,255,0.45)",
-                    scale: 1,
-                    duration: 0.2,
-                    ease: "power2.out",
-                  })
-                }
-              >
-                Sign in
-              </button>
-              <button
-                onClick={() => navigate("/login")}
-                style={{
-                  fontFamily: FONT,
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  color: "#fff",
-                  padding: "7px 18px",
-                  borderRadius: "10px",
-                  border: "none",
-                  cursor: "pointer",
-                  background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
-                  boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
-                  willChange: "transform",
-                }}
-                onMouseEnter={(e) =>
-                  gsap.to(e.currentTarget, {
-                    y: -3,
-                    boxShadow: "0 8px 24px rgba(4,184,255,0.45)",
-                    duration: 0.2,
-                    ease: "power2.out",
-                  })
-                }
-                onMouseLeave={(e) =>
-                  gsap.to(e.currentTarget, {
-                    y: 0,
+              {!isLoggedIn ? (
+                <>
+                  <button
+                    onClick={() => navigate("/login")}
+                    style={{
+                      fontFamily: FONT,
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#1e3a4a",
+                      border: "1.5px solid rgba(4,184,255,0.45)",
+                      background: "transparent",
+                      padding: "6px 20px",
+                      borderRadius: "999px",
+                      cursor: "pointer",
+                      transition: "color 0.2s, border-color 0.2s",
+                    }}
+                    onMouseEnter={(e) =>
+                      gsap.to(e.currentTarget, {
+                        color: "#04b8ff",
+                        borderColor: "#04b8ff",
+                        scale: 1.04,
+                        duration: 0.2,
+                        ease: "power2.out",
+                      })
+                    }
+                    onMouseLeave={(e) =>
+                      gsap.to(e.currentTarget, {
+                        color: "#1e3a4a",
+                        borderColor: "rgba(4,184,255,0.45)",
+                        scale: 1,
+                        duration: 0.2,
+                        ease: "power2.out",
+                      })
+                    }
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    onClick={() => navigate("/login")}
+                    style={{
+                      fontFamily: FONT,
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      color: "#fff",
+                      padding: "7px 18px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
+                      boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
+                      willChange: "transform",
+                    }}
+                    onMouseEnter={(e) =>
+                      gsap.to(e.currentTarget, {
+                        y: -3,
+                        boxShadow: "0 8px 24px rgba(4,184,255,0.45)",
+                        duration: 0.2,
+                        ease: "power2.out",
+                      })
+                    }
+                    onMouseLeave={(e) =>
+                      gsap.to(e.currentTarget, {
+                        y: 0,
+                        boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
+                        duration: 0.2,
+                        ease: "power2.out",
+                      })
+                    }
+                  >
+                    Get Started
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleDashboardRedirect}
+                  title="Go to Dashboard"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    border: "none",
+                    cursor: "pointer",
+                    background: "linear-gradient(135deg, #04b8ff 0%, #0077cc 100%)",
                     boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
-                    duration: 0.2,
-                    ease: "power2.out",
-                  })
-                }
-              >
-                Get Started
-              </button>
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontFamily: FONT,
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    willChange: "transform",
+                  }}
+                  onMouseEnter={(e) =>
+                    gsap.to(e.currentTarget, {
+                      y: -2,
+                      boxShadow: "0 6px 20px rgba(4,184,255,0.45)",
+                      duration: 0.2,
+                      ease: "power2.out",
+                    })
+                  }
+                  onMouseLeave={(e) =>
+                    gsap.to(e.currentTarget, {
+                      y: 0,
+                      boxShadow: "0 4px 16px rgba(4,184,255,0.35)",
+                      duration: 0.2,
+                      ease: "power2.out",
+                    })
+                  }
+                >
+                  {getInitials(user.name)}
+                </button>
+              )}
             </div>
 
             {/* Hamburger / Close — mobile only */}
@@ -221,7 +302,7 @@ export default function HomeNavbar() {
                 colors={['#e8f6ff', '#cceeff', '#ffffff']}
                 items={[
                   ...navLinks.map((l) => ({ label: l, link: "#" })),
-                  { label: "Login", link: "/login" }
+                  isLoggedIn ? { label: "Dashboard", onClick: handleDashboardRedirect } : { label: "Login", link: "/login" }
                 ]}
                 displayItemNumbering={false}
               />

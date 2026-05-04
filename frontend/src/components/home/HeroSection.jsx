@@ -98,7 +98,7 @@ function DashboardMockup() {
 
       {/* Floating badge */}
       <div
-        className="absolute -top-3 -right-3 px-3 py-1.5 rounded-full text-[9px] font-semibold text-white"
+        className="absolute -top-3 -right-3 px-3 py-1.5 rounded-full text-[9px] font-semibold text-white select-none"
         style={{
           background: "linear-gradient(135deg, #04b8ff, #0077cc)",
           boxShadow: "0 4px 16px rgba(4,184,255,0.45)",
@@ -109,7 +109,7 @@ function DashboardMockup() {
 
       {/* Floating stat card */}
       <div
-        className="absolute -bottom-4 -left-4 px-3 py-2 rounded-xl text-[8px]"
+        className="absolute -bottom-4 -left-4 px-3 py-2 rounded-xl text-[8px] select-none"
         style={{
           background: "rgba(255,255,255,0.92)",
           backdropFilter: "blur(12px)",
@@ -218,7 +218,7 @@ export default function HeroSection() {
             <ScrollFade delay={0.25} y={20}>
               <div className="flex items-center gap-5 flex-wrap">
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate("/customer/chat")}
                   className="group cursor-pointer flex items-center gap-4 pl-8 pr-2.5 py-2.5 rounded-full transition-all duration-300"
                   style={{
                     background: "linear-gradient(135deg, #5bc8f5 0%, #4ab8ef 40%, #3aaae0 100%)",
