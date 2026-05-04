@@ -42,6 +42,14 @@ button, a {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-10px); }
 }
+@keyframes popup-in {
+  0% { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes popup-out {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
+}
 
 .animate-spin-slow   { animation: spin 0.8s linear infinite; }
 .animate-pulse-dot   { animation: pulse-dot 2s ease-in-out infinite; }
@@ -49,15 +57,6 @@ button, a {
 .blob-drift-2        { animation: blob-drift-2 11s ease-in-out infinite; }
 .animate-fade-in-up  { animation: fade-in-up 0.6s ease-out both; }
 .animate-float       { animation: float 4s ease-in-out infinite; }
-
-@keyframes draw-line {
-  from { stroke-dashoffset: 900; }
-  to { stroke-dashoffset: 0; }
-}
-.animate-draw-line {
-  stroke-dasharray: 900;
-  animation: draw-line 1.2s ease-in-out forwards;
-}
 
 @font-face {
   font-family: "Flexing Bold";
@@ -74,46 +73,4 @@ button, a {
 @font-face {
   font-family: 'Inter';
   src: url(./assets/fonts/Inter-Regular.woff2) format('woff2');
-}
-
-/* Hide scrollbar utility */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* Global font — applied to every page including Admin & Agent dashboards */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  color: #1a3a4a;
-  margin: 0;
-  padding: 0;
-}
-
-/* Admin / Agent Dashboard – mobile responsive */
-@media (max-width: 768px) {
-  .admin-hamburger {
-    display: flex !important;
-  }
-  .topbar-subtitle {
-    display: none !important;
-  }
-}
-
-/* Settings popup slide animations */
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes slideOutLeft {
-  from { opacity: 1; transform: translateX(0); }
-  to   { opacity: 0; transform: translateX(-24px); }
 }

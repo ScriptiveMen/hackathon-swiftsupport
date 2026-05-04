@@ -3,45 +3,21 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import Lenis from "lenis";
 import axiosClient from "./api/axiosClient.js";
 
-
 import Loader from "./components/common/Loader.jsx";
-
-// ── Eagerly loaded (landing page — needs fast first paint) ──────────
 import Home from "./pages/common/Home.jsx";
+import Login from "./pages/common/Login.jsx";
+import Register from "./pages/common/Register.jsx";
+import AdminLayout from "./pages/admin/AdminLayout.jsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
 
-// ── Lazy loaded (code-split per route) ─────────────────────────────
-const Login            = lazy(() => import("./pages/common/Login.jsx"));
-const Register         = lazy(() => import("./pages/common/Register.jsx"));
-
-// Admin
-const AdminLayout      = lazy(() => import("./pages/admin/AdminLayout.jsx"));
-const AdminMainContent = lazy(() => import("./components/admin/AdminMainContent.jsx"));
-const AddAgent         = lazy(() => import("./components/admin/AddAgent.jsx"));
-const Customers        = lazy(() => import("./components/admin/Customers.jsx"));
-const Tickets          = lazy(() => import("./components/admin/Tickets.jsx"));
-const FAQ              = lazy(() => import("./components/admin/FAQ.jsx"));
-const Docs             = lazy(() => import("./components/admin/Docs.jsx"));
-
-// Agent
-const AgentLayout        = lazy(() => import("./pages/agent/AgentLayout.jsx"));
-const AgentDashboard     = lazy(() => import("./pages/agent/AgentDashboard.jsx"));
-const AgentChat          = lazy(() => import("./pages/agent/AgentChat.jsx"));
-const AgentTicketHistory = lazy(() => import("./pages/agent/AgentTicketHistory.jsx"));
-const AgentKnowledgeBase = lazy(() => import("./pages/agent/AgentKnowledgeBase.jsx"));
-const AgentFAQ           = lazy(() => import("./pages/agent/AgentFAQ.jsx"));
-const AgentDocs          = lazy(() => import("./pages/agent/AgentDocs.jsx"));
-const AgentSettings      = lazy(() => import("./pages/agent/AgentSettings.jsx"));
-
-// Customer
-const CustomerLayout = lazy(() => import("./pages/customer/CustomerLayout.jsx"));
-const CustomerChat   = lazy(() => import("./pages/customer/CustomerChat.jsx"));
-
-// ── Shared fallback spinner ─────────────────────────────────────────
-const PageLoader = () => (
-    <div className="h-screen w-full flex items-center justify-center bg-[#f4f7fb]">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#1f88d9]" />
-    </div>
-);
+// Admin Components
+import AdminMainContent from "./components/admin/AdminMainContent.jsx";
+import AddAgent from "./components/admin/AddAgent.jsx";
+import Customers from "./components/admin/Customers.jsx";
+import Tickets from "./components/admin/Tickets.jsx";
+import FAQ from "./components/admin/FAQ.jsx";
+import Docs from "./components/admin/Docs.jsx";
 
 const App = () => {
     const location = useLocation();
@@ -107,9 +83,8 @@ const App = () => {
     }
 
     return (
-
         <div>
-            <Suspense fallback={<PageLoader />}>
+            <Suspense fallback={<Loader />}>
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
@@ -127,20 +102,7 @@ const App = () => {
                     </Route>
 
                     {/* Agent Routes */}
-                    <Route path="/agent" element={<AgentLayout />}>
-                        <Route index element={<AgentDashboard />} />
-                        <Route path="chat" element={<AgentChat />} />
-                        <Route path="tickets" element={<AgentTicketHistory />} />
-                        <Route path="knowledge-base" element={<AgentKnowledgeBase />} />
-                        <Route path="faq" element={<AgentFAQ />} />
-                        <Route path="docs" element={<AgentDocs />} />
-                        <Route path="settings" element={<AgentSettings />} />
-                    </Route>
-
-                    {/* Customer Routes */}
-                    <Route path="/customer" element={<CustomerLayout />}>
-                        <Route path="chat" element={<CustomerChat />} />
-                    </Route>
+                    <Route path="/agent" element={<AgentDashboard />} />
                 </Routes>
             </Suspense>
         </div>

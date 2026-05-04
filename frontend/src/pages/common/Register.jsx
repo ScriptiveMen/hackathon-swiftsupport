@@ -1,50 +1,102 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosClient from "../../api/axiosClient.js";
-
-
+import axiosClient from "../../api/axiosClient";
 
 export default function Register() {
-  const [activeTab, setActiveTab] = useState("signup");
-  const [signupForm, setSignupForm] = useState({
+  const navigate = useNavigate();
+  const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
-    role: "Admin", // Default to Admin as requested
-    organizationName: "Acme Corp",
+    confirmPassword: ""
   });
-  
-  const navigate = useNavigate();
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
 
-  const switchTab = (tab) => {
-    setActiveTab(tab);
-    setError(null);
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSignup = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.email || !signupForm.password) return;
+    setError("");
+    setSuccess(false);
 
-    setLoading(true);
-    setError(null);
+    if (!form.name || !form.email || !form.password) {
+      return setError("All fields are required");
+    }
+
+    if (form.password !== form.confirmPassword) {
+      return setError("Passwords do not match");
+    }
+
     try {
-      const { data } = await axiosClient.post("/auth/register", signupForm);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      
-      const role = data.user.role?.toLowerCase();
-      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
+      setLoading(true);
+
+      const res = await axiosClient.post("/register", form);
+
+      setSuccess(true);
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: ""
+      });
+
     } catch (err) {
-      console.error("Registration Error:", err.response?.data || err.message);
-      setError(err.response?.data?.message || "Signup failed");
+      setError(err.response?.data?.message || err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
+
+  /* ── shared styles ── */
+  const inp = {
+    width: "100%", padding: "10px 12px 10px 38px", border: "1.5px solid rgba(11,186,255,0.3)",
+    borderRadius: "10px", fontSize: "13.5px", color: "#1e3a4a", background: "rgba(255,255,255,0.9)",
+    outline: "none", boxSizing: "border-box", fontFamily: "'Inter',sans-serif", transition: "border-color 0.2s, box-shadow 0.2s",
+  };
+  const focus = (e) => { e.target.style.borderColor = "#04b8ff"; e.target.style.boxShadow = "0 0 0 3px rgba(4,184,255,0.12)"; };
+  const blur  = (e) => { e.target.style.borderColor = "rgba(11,186,255,0.3)"; e.target.style.boxShadow = "none"; };
+  const lbl   = { fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.1em", color: "#4a6070", textTransform: "uppercase", display: "block", marginBottom: "5px" };
+
+  const Icon = ({ d, viewBox = "0 0 24 24" }) => (
+    <svg width="15" height="15" viewBox={viewBox} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {typeof d === "string" ? <path d={d} /> : d}
+    </svg>
+  );
+
+  const Field = ({ label, icon, error, children }) => (
+    <div style={{ marginBottom: "14px" }}>
+      <label style={lbl}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#7aaabb", display: "flex" }}>{icon}</span>
+        {children}
+      </div>
+      {error && <span style={{ display:"block", fontSize:"11px", color:"#ef4444", marginTop:"4px", fontWeight:500 }}>{error}</span>}
+    </div>
+  );
+
+  if (success) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(145deg,#e8f6ff 0%,#cceeff 40%,#a8e0ff 100%)", fontFamily: "'Inter',sans-serif" }}>
+      <div style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", borderRadius: "20px", padding: "48px 40px", textAlign: "center", maxWidth: "400px", width: "90%", boxShadow: "0 8px 48px rgba(4,184,255,0.18)", border: "1px solid rgba(11,186,255,0.25)" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#04b8ff,#0072c6)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 6px 20px rgba(4,184,255,0.4)" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+        </div>
+        <h2 style={{ margin: "0 0 10px", fontSize: "22px", fontWeight: 800, color: "#0a2a3a" }}>You're in!</h2>
+        <p style={{ margin: "0 0 28px", fontSize: "13.5px", color: "#4a6070", lineHeight: 1.6 }}>
+          Your account has been created. The admin team can now see your profile in the Customers panel.
+        </p>
+        <button onClick={() => navigate("/login")} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "none", background: "linear-gradient(90deg,#04b8ff,#0072c6)", color: "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 18px rgba(4,184,255,0.35)" }}>
+          Go to Login
+        </button>
+      </div>
+    </div>
+  );
 
 
 
@@ -109,186 +161,79 @@ export default function Register() {
   );
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center relative overflow-hidden font-[Inter,sans-serif]"
-      style={{
-        background:
-          "linear-gradient(145deg, #e8f6ff 0%, #cceeff 40%, #a8e0ff 100%)",
-      }}
-    >
-      {/* Ambient blobs */}
-      <div
-        className="blob-drift absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: "#0bbaff", opacity: 0.12, filter: "blur(491px)" }}
-      />
-      <div
-        className="blob-drift-2 absolute bottom-[-120px] right-[-80px] w-[420px] h-[420px] rounded-full pointer-events-none"
-        style={{ background: "#6ed6ff", opacity: 1, filter: "blur(364px)" }}
-      />
-      <div
-        className="absolute top-[30%] right-[5%] w-[300px] h-[300px] rounded-full pointer-events-none"
-        style={{ background: "#04b8ff", opacity: 1, filter: "blur(248px)" }}
-      />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h2 className="text-2xl font-bold text-center mb-6">Create Account</h2>
 
-      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-[460px] px-4 py-8">
-        <h1 className="text-[40px] font-[Switzer_Extrabold] font-[900] text-[#0a2a3a] mb-2">
-          Admin Register
-        </h1>
-        <p className="text-[13px] font-[Inter] text-red-500 mb-2">
-          <span className="text-black">Note:</span>
-          Do not create regular user accounts. This platform is intended only
-          for organizational owners and authorized business administrators.
-        </p>
-        <div className="w-full bg-white/80 backdrop-blur-xl border border-[#0bbaff]/25 rounded-2xl overflow-hidden shadow-[0_8px_48px_rgba(4,184,255,0.18),0_1px_0_rgba(255,255,255,0.9)_inset]">
-          {/* Tabs */}
-          <div className="flex border-b border-[#0bbaff]/15">
-            {["signup", "login"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => {
-                  if (tab === "login") navigate("/login");
-                  else setActiveTab("signup");
-                }}
-                className={`flex-1 py-3.5 text-[14px] font-medium transition relative capitalize ${activeTab === tab ? "text-[#04b8ff]" : "text-[#7aaabb] hover:text-[#1e6a8a]"}`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                {activeTab === tab && (
-                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] rounded-t-sm bg-gradient-to-r from-[#04b8ff] to-[#6ed6ff]" />
-                )}
-              </button>
-            ))}
-          </div>
+        {error && (
+          <p className="bg-red-100 text-red-600 p-2 rounded mb-3 text-sm">
+            {error}
+          </p>
+        )}
 
-          {error && (
-            <div className="mx-7 mt-4 px-3.5 py-2.5 bg-red-50 border border-red-200 rounded-lg text-[12.5px] text-red-500">
-              {error}
-            </div>
-          )}
+        {success && (
+          <p className="bg-green-100 text-green-600 p-2 rounded mb-3 text-sm">
+            {success}
+          </p>
+        )}
 
-          <form
-            onSubmit={handleSignup}
-            className="px-7 pt-6 pb-2 flex flex-col gap-4"
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            name="name"
+            placeholder="Full Name"
+            value={form.name}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="Confirm Password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition duration-200"
           >
-            <div className="flex flex-col gap-1.5">
-              <label className={labelCls}>Full Name</label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-[#7aaabb]">
-                  <UserIcon />
-                </span>
-                <input
-                  className={inputCls}
-                  type="text"
-                  placeholder="John Doe"
-                  value={signupForm.name}
-                  onChange={(e) =>
-                    setSignupForm({ ...signupForm, name: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            {loading ? "Creating..." : "Sign Up"}
+          </button>
+        </form>
 
-            <div className="flex flex-col gap-1.5">
-              <label className={labelCls}>Email Address</label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-[#7aaabb]">
-                  <MailIcon />
-                </span>
-                <input
-                  className={inputCls}
-                  type="email"
-                  placeholder="vanshsharma0963@gmail.com"
-                  value={signupForm.email}
-                  onChange={(e) =>
-                    setSignupForm({ ...signupForm, email: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={labelCls}>Password</label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-[#7aaabb]">
-                  <LockIcon />
-                </span>
-                <input
-                  className={inputCls}
-                  type="password"
-                  placeholder="••••••••"
-                  value={signupForm.password}
-                  onChange={(e) =>
-                    setSignupForm({ ...signupForm, password: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className={labelCls}>Select Organization</label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-[#7aaabb]">
-                  <BriefIcon />
-                </span>
-                <select
-                  value={signupForm.organizationName}
-                  onChange={(e) =>
-                    setSignupForm({
-                      ...signupForm,
-                      organizationName: e.target.value,
-                    })
-                  }
-
-                  className="w-full bg-white border border-[#0bbaff]/30 rounded-lg pl-10 pr-8 py-2.5 text-[13.5px] text-[#1e3a4a] outline-none appearance-none cursor-pointer focus:border-[#04b8ff] focus:ring-2 focus:ring-[#04b8ff]/15 transition shadow-sm"
-                >
-                  {orgs.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-                <span className="absolute right-3 text-[#7aaabb] text-xs pointer-events-none">
-                  ▾
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-1 py-3 rounded-lg font-semibold text-[14px] text-white flex items-center justify-center gap-2 transition-all bg-[#04b8ff] hover:bg-[#0090cc] shadow-[0_4px_18px_rgba(4,184,255,0.35)] hover:shadow-[0_6px_26px_rgba(4,184,255,0.5)] hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? "Creating..." : "Create Account"}
-            </button>
-
-            <p className="text-center text-[12.5px] text-[#5a7a8a] pb-1">
-              Already have an account?{" "}
-              <span
-                onClick={() => navigate("/login")}
-                className="text-[#04b8ff] font-semibold cursor-pointer hover:underline"
-              >
-                Login
-              </span>
-            </p>
-          </form>
-
-          {/* Card footer */}
-          <div className="px-7 pt-4 pb-5 flex flex-col items-center gap-3">
-            <div className="w-full flex items-center gap-3">
-              <span className="flex-1 h-px bg-[#0bbaff]/15" />
-              <span className="text-[10px] text-[#7aaabb] tracking-wider whitespace-nowrap">
-                Secure Authentication Engine
-              </span>
-              <span className="flex-1 h-px bg-[#0bbaff]/15" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse" />
-              <span className="text-[9.5px] font-semibold tracking-[0.12em] text-[#7aaabb] uppercase">
-                Instance Status: Ready
-              </span>
-            </div>
-          </div>
-        </div>
+        <p className="text-sm text-center mt-4 text-gray-600">
+          Already have an account?{" "}
+          <span 
+            onClick={() => navigate("/login")}
+            className="text-indigo-600 cursor-pointer hover:underline"
+          >
+            Login
+          </span>
+        </p>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

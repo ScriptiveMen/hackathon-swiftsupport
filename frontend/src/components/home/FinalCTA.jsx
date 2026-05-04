@@ -32,10 +32,10 @@ export default function FinalCTA() {
           <div className="blob-drift absolute -top-20 -left-20 w-72 h-72 rounded-full pointer-events-none" style={{ background: "#6ed6ff", opacity: 0.30, filter: "blur(60px)" }} />
           <div className="blob-drift-2 absolute -bottom-20 -right-20 w-80 h-80 rounded-full pointer-events-none" style={{ background: "#003399", opacity: 0.50, filter: "blur(80px)" }} />
 
-          <div className="relative z-10">
+          <div className="relative flex flex-col items-center justify-center gap-3 z-10">
             <ScrollFade delay={0} blur={4}>
               <div
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-6"
+                className="inline-flex items-center select-none gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-6"
                 style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", color: "white" }}
               >
                 ✦ Start Free Today — No Credit Card Required
@@ -44,7 +44,7 @@ export default function FinalCTA() {
 
             <ScrollFade delay={0.1} y={24} blur={3}>
               <h2
-                className="text-[36px] lg:text-[54px] font-black text-white leading-[1.08] mb-5"
+                className="text-[36px] lg:text-[54px] font-black text-white leading-[1.08] mb-1"
                 style={{ fontFamily: "'Switzer Extrabold', 'Inter', sans-serif", letterSpacing: "-0.02em" }}
               >
                 Get Started with
