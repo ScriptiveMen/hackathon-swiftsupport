@@ -130,12 +130,10 @@ const loginUser = async (req, res) => {
 
     // Check if account is active
     if (!user.isActive) {
-      return res
-        .status(401)
-        .json({
-          status: false,
-          message: "Account is disabled. Please contact admin.",
-        });
+      return res.status(401).json({
+        status: false,
+        message: "Account is disabled. Please contact admin.",
+      });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -183,52 +181,57 @@ const loginUser = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const { userId, organizationId } = req.user.userId;
 
     const user = await userModel.findById(userId);
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    if (
+      !user ||
+      user.organizationId.toString() !== organizationId.toString() ||
+      user.role === "customer" ||
+      user.role === "agent"
+    ) {
+      return res
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
     }
 
     await userModel.findByIdAndDelete(userId);
 
     res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: `Delete User Error: ${error.message}`,
-      });
+    res.status(500).json({
+      status: false,
+      message: `Delete User Error: ${error.message}`,
+    });
   }
 };
 
 const getAllOrganizations = async (req, res) => {
   try {
-    const organizations = await organizationModel.find();
+    const organizations = await organizationModel.find().select("name ownerId");
 
-    res.status(200).json({ status: true, data: organizations });
-  } catch (error) {
     res
-      .status(500)
-      .json({
-        status: false,
-        message: `Get Organizations Error: ${error.message}`,
-      });
+      .status(200)
+      .json({ status: true, data: organizations, count: organizations.length });
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: `Get Organizations Error: ${error.message}`,
+    });
   }
 };
 
 const getUserById = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const { userId, organizationId } = req.user;
 
     const user = await userModel.findById(userId);
 
-    if (!user) {
+    if (!user || user.organizationId.toString() !== organizationId.toString()) {
       return res
-        .status(404)
-        .json({ status: false, message: "User not found" });
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
     }
 
     res.status(200).json({ status: true, data: user });
@@ -243,8 +246,6 @@ const getAllUsers = async (req, res) => {
   try {
     const { userId, organizationId } = req.user;
 
-    const users = await userModel.find().select("-password");
-
     const user = await userModel.findById(userId);
 
     if (!user || user.organizationId.toString() !== organizationId.toString()) {
@@ -253,11 +254,41 @@ const getAllUsers = async (req, res) => {
         .json({ status: false, message: "Unauthorized access" });
     }
 
-    res.status(200).json({ status: true, data: users });
+    const users = await userModel.find({organizationId}).select("-password");
+
+    res.status(200).json({ status: true, data: users, count: users.length });
   } catch (error) {
     res
       .status(500)
       .json({ status: false, message: `Get Users Error: ${error.message}` });
+  }
+};
+
+const getAllAgents = async (req, res) => {
+  try {
+    const { userId, organizationId } = req.user;
+
+    const user = await userModel.findById(userId);
+
+    if (
+      !user ||
+      user.organizationId.toString() !== organizationId.toString() ||
+      user.role === "customer"
+    ) {
+      return res
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
+    }
+
+    const agents = await userModel
+      .find({ role: "agent", organizationId })
+      .select("-password");
+
+    res.status(200).json({ status: true, data: agents });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ status: false, message: `Get Agents Error: ${error.message}` });
   }
 };
 
@@ -268,4 +299,5 @@ module.exports = {
   getAllOrganizations,
   getUserById,
   getAllUsers,
+  getAllAgents,
 };

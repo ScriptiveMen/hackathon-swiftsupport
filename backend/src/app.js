@@ -4,6 +4,9 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const hpp = require("hpp");
 
 const authRoutes = require("./routes/auth.routes.js");
 const ticketRoutes = require("./routes/ticket.routes.js");
@@ -12,7 +15,17 @@ const aiRoutes = require("./routes/ai.routes.js");
 const chatRoutes = require("./routes/chat.routes.js");
 
 const app = express();
-app.use(express.json());
+
+app.disable("x-powered-by");
+app.use(helmet());
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: "Too many requests, please try again later.",
+});
+app.use("/api", limiter);
+
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 app.use(
     cors({
@@ -20,6 +33,8 @@ app.use(
         credentials: true,
     }),
 );
+
+app.use(hpp());
 
 app.get("/", (req, res) => {
     res.send("Server is up and running 🚀");

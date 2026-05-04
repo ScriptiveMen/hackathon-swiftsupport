@@ -1,13 +1,33 @@
+const chatModel = require("../models/chats.model.js");
 const ticketModel = require("../models/ticket.model.js");
+const userModel = require("../models/user.model.js");
 
 const getAllTickets = async (req, res) => {
   try {
-    const tickets = await ticketModel.find();
+    const { userId, organizationId } = req.user;
+
+    const user = await userModel.findById(userId);
+
+    if (!user || user.organizationId.toString() !== organizationId.toString()) {
+      return res
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
+    }
+
+    let tickets;
+    if (user.role === "customer") {
+      tickets = await ticketModel
+        .find({ userId: userId, organizationId: organizationId })
+        .sort({ createdAt: -1 });
+    } else {
+      tickets = await ticketModel.find({ organizationId: organizationId }).sort({ createdAt: -1 });
+    }
 
     res.status(200).json({
       status: true,
       message: "Tickets fetched successfully",
       data: tickets,
+      count: tickets.length,
     });
   } catch (error) {
     res.status(500).json({
@@ -48,9 +68,20 @@ const createTicket = async (req, res) => {
     const { userId, organizationId } = req.user;
     const { title, description, priority } = req.body;
 
+    const user = await userModel.findById(userId);
+
+    if (!user || user.organizationId.toString() !== organizationId.toString()) {
+      return res
+        .status(403)
+        .json({ status: false, message: "Unauthorized access" });
+    }
+
+    const chat = await chatModel.create({ userId, organizationId });
+
     const newTicket = await ticketModel.create({
       userId,
       organizationId,
+      chatId: chat._id,
       title,
       description,
       priority,
@@ -86,20 +117,16 @@ const updateTicket = async (req, res) => {
         .json({ status: false, message: "Ticket not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        status: true,
-        message: "Ticket updated successfully",
-        data: updatedTicket,
-      });
+    res.status(200).json({
+      status: true,
+      message: "Ticket updated successfully",
+      data: updatedTicket,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: `Error updating ticket: ${error.message}`,
-      });
+    res.status(500).json({
+      status: false,
+      message: `Error updating ticket: ${error.message}`,
+    });
   }
 };
 
@@ -119,12 +146,10 @@ const deleteTicket = async (req, res) => {
       .status(200)
       .json({ status: true, message: "Ticket deleted successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: `Error deleting ticket: ${error.message}`,
-      });
+    res.status(500).json({
+      status: false,
+      message: `Error deleting ticket: ${error.message}`,
+    });
   }
 };
 
@@ -145,20 +170,16 @@ const ticketAssginedToAgent = async (req, res) => {
         .json({ status: false, message: "Ticket not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        status: true,
-        message: "Ticket assigned to agent successfully",
-        data: updatedTicket,
-      });
+    res.status(200).json({
+      status: true,
+      message: "Ticket assigned to agent successfully",
+      data: updatedTicket,
+    });
   } catch {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: `Error assigning ticket to agent: ${error.message}`,
-      });
+    res.status(500).json({
+      status: false,
+      message: `Error assigning ticket to agent: ${error.message}`,
+    });
   }
 };
 
@@ -179,20 +200,16 @@ const ticketStatusUpdate = async (req, res) => {
         .json({ status: false, message: "Ticket not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        status: true,
-        message: "Ticket status updated successfully",
-        data: updatedTicket,
-      });
+    res.status(200).json({
+      status: true,
+      message: "Ticket status updated successfully",
+      data: updatedTicket,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: `Error updating ticket status: ${error.message}`,
-      });
+    res.status(500).json({
+      status: false,
+      message: `Error updating ticket status: ${error.message}`,
+    });
   }
 };
 
