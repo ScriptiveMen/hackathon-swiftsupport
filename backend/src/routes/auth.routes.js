@@ -12,6 +12,12 @@ router.post(
   authControllers.registerUser,
 );
 
+router.post(
+  "/registerAdmin",
+  validators.registerAdminValidations,
+  authControllers.registerAdmin,
+);
+
 /* POST /api/auth/login */
 router.post(
   "/login",
