@@ -18,9 +18,13 @@ const getAllTickets = async (req, res) => {
     if (user.role === "customer") {
       tickets = await ticketModel
         .find({ userId: userId, organizationId: organizationId })
+        .populate("userId", "name email")
         .sort({ createdAt: -1 });
     } else {
-      tickets = await ticketModel.find({ organizationId: organizationId }).sort({ createdAt: -1 });
+      tickets = await ticketModel
+        .find({ organizationId: organizationId })
+        .populate("userId", "name email")
+        .sort({ createdAt: -1 });
     }
 
     res.status(200).json({
@@ -193,6 +197,26 @@ const ticketStatusUpdate = async (req, res) => {
       { status: status },
       { new: true },
     );
+
+    // If resolved, send automated thank you message
+    if (status === "resolved") {
+      const messageModel = require("../models/message.model"); // Ensure it's imported
+      await messageModel.create({
+        chatId: updatedTicket.chatId,
+        sender: "ai",
+        content: "Thank you so much for connecting with Swift Support! Your issue has been marked as resolved. Have a great day!"
+      });
+
+      const io = req.app.get("socketio");
+      if (io) {
+        io.to(`chat_${String(updatedTicket.chatId)}`).emit("receive_message", {
+          chatId: updatedTicket.chatId,
+          sender: "ai",
+          content: "Thank you so much for connecting with Swift Support! Your issue has been marked as resolved. Have a great day!",
+          createdAt: new Date()
+        });
+      }
+    }
 
     if (!updatedTicket) {
       return res

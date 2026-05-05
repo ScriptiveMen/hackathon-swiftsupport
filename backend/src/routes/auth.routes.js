@@ -38,4 +38,7 @@ router.get("/users", authMiddleware, authControllers.getAllUsers);
 router.get("/getAllAgents", authMiddleware, authControllers.getAllAgents);
 router.get("/agents", authMiddleware, authControllers.getAllAgents);
 
+/* POST /api/auth/heartbeat */
+router.post("/heartbeat", authMiddleware, authControllers.heartbeat);
+
 module.exports = router;

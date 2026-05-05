@@ -14,6 +14,18 @@ const knowledgeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    variant: {
+      type: String,
+    },
+    category: {
+      type: String,
+      default: "Billing",
+    },
+    status: {
+      type: String,
+      enum: ["Synced", "Pending"],
+      default: "Pending",
+    },
     tags: [String], // helps in better search
   },
   { timestamps: true },

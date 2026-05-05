@@ -18,8 +18,14 @@ const getAllChats = async (req, res) => {
         .json({ status: false, message: "Unauthorized access" });
     }
 
+    const query = { organizationId: organizationId };
+    if (user.role === "customer") {
+      query.userId = userId;
+    }
+
     const chats = await chatModel
-      .find({ userId: userId, organizationId: organizationId })
+      .find(query)
+      .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -109,6 +115,13 @@ const startChat = async (req, res) => {
       status: "active",
     });
 
+    // Send automated welcome message
+    await messageModel.create({
+      chatId: chat._id,
+      sender: "ai",
+      content: "Hi! How can I help you today?"
+    });
+
     res.status(201).json({
       success: true,
       chatId: chat._id,
@@ -121,9 +134,41 @@ const startChat = async (req, res) => {
   }
 };
 
+const sendMessage = async (req, res) => {
+  try {
+    const { userId, organizationId } = req.user;
+    const { chatId } = req.params;
+    const { message, sender } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ status: false, message: "Message is required" });
+    }
+
+    const chat = await chatModel.findById(chatId);
+    if (!chat || chat.organizationId.toString() !== organizationId.toString()) {
+      return res.status(403).json({ status: false, message: "Unauthorized access" });
+    }
+
+    const newMessage = await messageModel.create({
+      chatId,
+      sender: sender || "user",
+      content: message
+    });
+
+    const io = req.app.get("socketio");
+    if (io) {
+      io.to(`chat_${String(chatId)}`).emit("receive_message", newMessage.toObject());
+    }
+
+    res.status(201).json({ status: true, data: newMessage });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 module.exports = {
   getAllChats,
   getChatById,
   startChat,
-
+  sendMessage,
 };
