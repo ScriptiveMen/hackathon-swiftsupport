@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 async function registerUser(req, res) {
   try {
     const { name, email, password, role, organizationName } = req.body;
+    const normalizedRole = String(role || "customer").toLowerCase();
 
     // 1. Check if user already exists
     const existingUser = await userModel.findOne({ email });
@@ -17,7 +18,7 @@ async function registerUser(req, res) {
     let organizationId;
 
     // 2. Handle organization based on role
-    if (role === "admin") {
+    if (normalizedRole === "admin") {
       // Admin: create a new organization
       if (!organizationName) {
         return res.status(400).json({
@@ -39,7 +40,7 @@ async function registerUser(req, res) {
         name: organizationName,
       });
       organizationId = organization._id;
-    } else if (role === "agent" || role === "customer") {
+    } else if (normalizedRole === "agent" || normalizedRole === "customer") {
       // Agent/Customer: select existing organization by name
       if (!organizationName) {
         return res
@@ -66,13 +67,13 @@ async function registerUser(req, res) {
       name,
       email,
       password: hashedPassword,
-      role, // ← use the role from request
+      role: normalizedRole,
       organizationId,
       isActive: true,
     });
 
     // 4. If admin, set ownerId on the newly created organization
-    if (role === "admin") {
+    if (normalizedRole === "admin") {
       await organizationModel.findByIdAndUpdate(organizationId, {
         ownerId: user._id,
       });
@@ -94,12 +95,14 @@ async function registerUser(req, res) {
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction, // false in development (localhost)
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     // 7. Send response (use `user` variable, not `newUser`)
     return res.status(201).json({
       message: "User registered successfully",
+      token, // ← Add token here
       user: {
         id: user._id,
         organizationId: user.organizationId,
@@ -147,6 +150,7 @@ const loginUser = async (req, res) => {
       {
         userId: user._id,
         organizationId: user.organizationId,
+        role: user.role, // Added role to payload for consistency
       },
       process.env.JWT_SECRET_KEY,
       { expiresIn: "1d" },
@@ -156,12 +160,14 @@ const loginUser = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
       status: true,
       message: "Login successful",
+      token, // ← Add token here
       user: {
         id: user._id,
         organizationId: user.organizationId,
@@ -178,6 +184,7 @@ const loginUser = async (req, res) => {
     });
   }
 };
+
 
 const deleteUser = async (req, res) => {
   try {

@@ -1,5 +1,4 @@
 import React from 'react';
-import HomeNavbar from '../../components/home/HomeNavbar';
 import HeroSection from '../../components/home/HeroSection';
 import FeaturesSection from '../../components/home/FeaturesSection';
 import ProductDemo from '../../components/home/ProductDemo';
@@ -15,7 +14,6 @@ import HomeFooter from '../../components/home/HomeFooter';
 const Home = () => {
   return (
     <div className="min-h-screen font-[Inter,sans-serif]">
-      <HomeNavbar />
       <HeroSection />
       <FeaturesSection />
       <ProductDemo />
@@ -26,7 +24,6 @@ const Home = () => {
       <TestimonialsSection />
       <SetupSteps />
       <FinalCTA />
-      <HomeFooter />
     </div>
   );
 };

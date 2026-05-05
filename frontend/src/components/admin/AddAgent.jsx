@@ -1,49 +1,31 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchAgents, registerUser } from "../../store/slices/authSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../common/Loader.jsx";
 import {
-  Search, Filter, Plus, MoreVertical, Edit2, Trash2, ChevronLeft, ChevronRight,
-  X, UserPlus, CheckCircle, Clock, Briefcase, Download, Star, Shield, ShieldCheck, Bell,
+  Search,
+  Filter,
+  Plus,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  UserPlus,
+  CheckCircle,
+  Clock,
+  Briefcase,
+  Download,
+  Star,
+  Shield,
+  ShieldCheck,
+  Bell,
 } from "lucide-react";
+import { useSearch } from "../../context/SearchContext.jsx";
+import toast from "react-hot-toast";
+import { useSocket } from "../../context/SocketContext.jsx";
 
 
-/* ── Toast Component ── */
-const Toast = ({ show, message, type = "success", onClose }) => {
-  useEffect(() => {
-    if (show) {
-      const t = setTimeout(onClose, 3000);
-      return () => clearTimeout(t);
-    }
-  }, [show, onClose]);
-
-  if (!show) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: "24px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: type === "success" ? "#16a34a" : "#ef4444",
-        color: "#fff",
-        padding: "12px 20px",
-        borderRadius: "12px",
-        boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        fontSize: "14px",
-        fontWeight: 600,
-        animation: "fadeUp 0.3s ease",
-      }}
-    >
-      <CheckCircle size={18} />
-      {message}
-    </div>
-  );
-};
 
 const DEPARTMENTS = ["All", "Tech Support", "Billing", "Sales", "General"];
 
@@ -620,12 +602,70 @@ const ActionMenu = ({ id, openId, setOpenId, onEdit, onDelete }) => {
 
 /* ── Main Component ── */
 const AddAgent = () => {
-  const dispatch = useDispatch();
-  const { agents, loading } = useSelector((state) => state.auth);
+  const { searchTerm } = useSearch();
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Data Fetching
+  const { socket } = useSocket();
+
+  const getAgents = async () => {
+    try {
+      const { data } = await axiosClient.get("/auth/agents");
+      setAgents(data.agents || data.data || data);
+    } catch (err) {
+      console.error("Failed to fetch agents:", err);
+    }
+  };
 
   useEffect(() => {
-    dispatch(fetchAgents());
-  }, [dispatch]);
+    setLoading(true);
+    getAgents().finally(() => setLoading(false));
+  }, []);
+
+  const toggleAccountStatus = async (agent) => {
+    const newStatus = !agent.isActive;
+    // Update local state immediately
+    setAgents(prev => prev.map(a => 
+      String(a._id) === String(agent._id) ? { ...a, isActive: newStatus } : a
+    ));
+
+    try {
+      await axiosClient.put(`/auth/toggleAccountStatus/${agent._id}`, { isActive: newStatus });
+    } catch (err) {
+      console.error("Failed to toggle agent account status:", err);
+      // Rollback
+      setAgents(prev => prev.map(a => 
+        String(a._id) === String(agent._id) ? { ...a, isActive: !newStatus } : a
+      ));
+    }
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("agent_created", () => getAgents());
+    socket.on("agent_updated", (data) => {
+      setAgents(prev => prev.map(a => 
+        String(a._id) === String(data.agentId || data.userId) 
+          ? { ...a, isActive: data.isActive !== undefined ? data.isActive : a.isActive } 
+          : a
+      ));
+    });
+    socket.on("status_update", (data) => {
+       setAgents(prev => prev.map(a => 
+         String(a._id) === String(data.userId)
+           ? { ...a, isOnline: data.isOnline, status: data.status || a.status, lastSeen: data.lastSeen }
+           : a
+       ));
+    });
+
+    return () => {
+      socket.off("agent_created");
+      socket.off("agent_updated");
+      socket.off("status_update");
+    };
+  }, [socket]);
 
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
@@ -635,12 +675,19 @@ const AddAgent = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const filterRef = useRef(null);
 
   const showToast = (message, type = "success") => {
-    setToast({ show: true, message, type });
+    if (type === "success") toast.success(message);
+    else toast.error(message);
   };
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setSearch(searchTerm);
+      setPage(1);
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     const h = (e) => {
@@ -668,16 +715,33 @@ const AddAgent = () => {
 
   const handleSave = async (form) => {
     if (editEntry) {
-      // Edit not wired to API yet — show informational toast
-      showToast("Profile update saved locally.", "success");
+      // Edit logic using axiosClient
+      try {
+        const agentId = editEntry._id || editEntry.id;
+        await axiosClient.put(`/auth/updateAgent/${agentId}`, form);
+        showToast("Profile update saved successfully.", "success");
+        // Re-fetch agents
+        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        setAgents(fetchRes.agents || fetchRes.data || fetchRes);
+      } catch (err) {
+        showToast(
+          err.response?.data?.message || "Failed to update agent.",
+          "error",
+        );
+      }
     } else {
       // Register new agent via API
-      const result = await dispatch(registerUser({ ...form, role: "agent" }));
-      if (registerUser.fulfilled.match(result)) {
+      try {
+        await axiosClient.post("/auth/createAgent", form);
         showToast("Agent added successfully!");
-        dispatch(fetchAgents()); // Refresh list
-      } else {
-        showToast(result.payload || "Failed to add agent.", "error");
+        // Re-fetch agents
+        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        setAgents(fetchRes.agents || fetchRes.data || fetchRes);
+      } catch (err) {
+        showToast(
+          err.response?.data?.message || "Failed to add agent.",
+          "error",
+        );
         return;
       }
     }
@@ -784,7 +848,7 @@ const AddAgent = () => {
             <p
               style={{ margin: "4px 0 0", fontSize: "13px", color: "#5a7a8a" }}
             >
-              Manage your customer support team and staff accounts.
+              Manage your support team and their performance.
             </p>
           </div>
           <div
@@ -861,7 +925,7 @@ const AddAgent = () => {
                     border: "1px solid #e2eef8",
                     padding: "16px",
                     zIndex: 100,
-                    minWidth: "200px",
+                    minWidth: "220px",
                     animation: "fadeDown 0.15s ease",
                   }}
                 >
@@ -969,7 +1033,7 @@ const AddAgent = () => {
             >
               <Download size={15} /> Export CSV
             </button>
-            {/* Add */}
+            {/* Add Agent */}
             <button
               onClick={openAdd}
               style={{
@@ -988,7 +1052,7 @@ const AddAgent = () => {
                 boxShadow: "0 4px 14px rgba(0,114,198,0.3)",
               }}
             >
-              <UserPlus size={15} /> Add Agent
+              <Plus size={15} /> Add Agent
             </button>
           </div>
         </div>
@@ -1008,10 +1072,10 @@ const AddAgent = () => {
               value: data.length,
               color: "#0072c6",
               bg: "#f0f7ff",
-              Icon: Briefcase,
+              Icon: UserPlus,
             },
             {
-              label: "Active",
+              label: "Active Now",
               value: activeCount,
               color: "#16a34a",
               bg: "#f0fdf4",
@@ -1020,8 +1084,8 @@ const AddAgent = () => {
             {
               label: "On Leave",
               value: leaveCount,
-              color: "#d97706",
-              bg: "#fffbeb",
+              color: "#ea580c",
+              bg: "#fff7ed",
               Icon: Clock,
             },
             {
@@ -1087,7 +1151,7 @@ const AddAgent = () => {
             overflowX: "auto",
           }}
         >
-          <div style={{ minWidth: "850px" }}>
+          <div style={{ minWidth: "900px" }}>
             <div
               style={{
                 display: "flex",
@@ -1104,12 +1168,12 @@ const AddAgent = () => {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1.4fr 100px 90px 80px 40px",
+                gridTemplateColumns: "2.2fr 1.5fr 1fr 100px 120px 80px",
                 padding: "10px 20px",
                 borderBottom: "1px solid #f0f7ff",
               }}
             >
-              {["AGENT NAME", "DEPARTMENT", "ROLE", "STATUS", "RATING", ""].map(
+              {["AGENT", "CONTACT", "ROLE", "ACCOUNT", "PRESENCE", ""].map(
                 (h, i) => (
                   <span
                     key={i}
@@ -1127,21 +1191,35 @@ const AddAgent = () => {
             </div>
 
             {loading ? (
-              <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>Loading agents...</div>
+              <div
+                style={{
+                  padding: "48px",
+                  textAlign: "center",
+                  color: "#9ab0be",
+                  fontSize: "14px",
+                }}
+              >
+                Loading agents...
+              </div>
             ) : paginated.length === 0 ? (
-              <div style={{ padding: "48px", textAlign: "center", color: "#9ab0be", fontSize: "14px" }}>No agents found.</div>
+              <div
+                style={{
+                  padding: "48px",
+                  textAlign: "center",
+                  color: "#9ab0be",
+                  fontSize: "14px",
+                }}
+              >
+                No agents found.
+              </div>
             ) : (
-              paginated.map((row, i) => {
-                const agentName = row.name || row.userName || "Unknown";
-                const agentId = row._id || row.id;
-                const dc = DEPT_COLORS[row.department] || { bg: "#f0f7ff", color: "#0072c6" };
+              paginated.map((agent, i) => {
                 return (
                   <div
-                  key={agentId || i}
-                    className="agent-row"
+                    key={agent._id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "2fr 1.4fr 100px 90px 80px 40px",
+                      gridTemplateColumns: "2.2fr 1.5fr 1fr 100px 120px 80px",
                       padding: "13px 20px",
                       borderBottom:
                         i < paginated.length - 1 ? "1px solid #f5f9ff" : "none",
@@ -1149,7 +1227,7 @@ const AddAgent = () => {
                       transition: "background 0.15s",
                     }}
                   >
-                    {/* Agent Info */}
+                    {/* Agent */}
                     <div
                       style={{
                         display: "flex",
@@ -1162,7 +1240,7 @@ const AddAgent = () => {
                           width: 36,
                           height: 36,
                           borderRadius: "50%",
-                      background: getColor(agentName),
+                          background: getColor(agent.name),
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1176,7 +1254,7 @@ const AddAgent = () => {
                             fontWeight: 700,
                           }}
                         >
-                          {initials(agentName)}
+                          {initials(agent.name)}
                         </span>
                       </div>
                       <div>
@@ -1188,91 +1266,114 @@ const AddAgent = () => {
                             color: "#1a3a4a",
                           }}
                         >
-                          {agentName}
+                          {agent.name}
                         </p>
                         <p
                           style={{
                             margin: 0,
-                            fontSize: "11.5px",
+                            fontSize: "11px",
                             color: "#9ab0be",
                           }}
                         >
-                          {row.email}
+                          {agent.role}
                         </p>
                       </div>
                     </div>
-                    {/* Department */}
-                    <div>
+
+                    {/* Contact */}
+                    <div style={{ fontSize: "12px", color: "#5a7a8a" }}>
+                      {agent.email}
+                    </div>
+
+                    {/* Role */}
+                    <div style={{ display: "flex" }}>
                       <span
                         style={{
-                          background: dc.bg,
-                          color: dc.color,
                           fontSize: "11px",
                           fontWeight: 600,
+                          color: "#0072c6",
+                          background: "#f0f7ff",
                           padding: "3px 10px",
                           borderRadius: "20px",
-                          whiteSpace: "nowrap",
+                          textTransform: "capitalize",
                         }}
                       >
-                        {row.department}
+                        {agent.role}
                       </span>
                     </div>
-                    {/* Role */}
+
+                    {/* Account Status */}
                     <span
                       style={{
                         fontSize: "12px",
-                        color: "#5a7a8a",
-                        fontWeight: 500,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
+                        fontWeight: 600,
+                        color: agent.isActive ? "#16a34a" : "#ef4444",
+                        background: agent.isActive ? "#f0fdf4" : "#fef2f2",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        width: "fit-content"
                       }}
                     >
-                      {row.role === "Manager" && (
-                        <Shield size={12} color="#9333ea" />
-                      )}{" "}
-                      {row.role}
+                      {agent.isActive ? "Active" : "Disabled"}
                     </span>
-                    {/* Status */}
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color:
-                          row.status === "Active"
-                            ? "#16a34a"
-                            : row.status === "On Leave"
-                              ? "#d97706"
-                              : "#9ca3af",
-                      }}
-                    >
-                      <CheckCircle
-                        size={13}
-                        color={
-                          row.status === "Active"
-                            ? "#16a34a"
-                            : row.status === "On Leave"
-                              ? "#d97706"
-                              : "#9ca3af"
-                        }
-                      />{" "}
-                      {row.status}
-                    </span>
-                    {/* Rating */}
-                    <Stars n={row.rating} />
-                    {/* Actions */}
+
+                    {/* Presence */}
                     <div
-                      style={{ display: "flex", justifyContent: "flex-end" }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
                     >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background:
+                            agent.status === "Available"
+                              ? "#16a34a"
+                              : agent.status === "Busy"
+                                ? "#ea580c"
+                                : "#94a3b8",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          color: "#1a3a4a",
+                        }}
+                      >
+                        {agent.status}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", alignItems: "center" }}>
+                      <button
+                        onClick={() => toggleAccountStatus(agent)}
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          border: "1px solid",
+                          borderColor: agent.isActive ? "#ef4444" : "#16a34a",
+                          color: agent.isActive ? "#ef4444" : "#16a34a",
+                          background: "transparent",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {agent.isActive ? "Disable" : "Enable"}
+                      </button>
                       <ActionMenu
-                        id={row.id}
+                        id={agent._id}
                         openId={openId}
                         setOpenId={setOpenId}
-                        onEdit={() => openEdit(row)}
-                        onDelete={() => handleDelete(row.id)}
+                        onEdit={() => openEdit(agent)}
+                        onDelete={() => handleDelete(agent._id)}
                       />
                     </div>
                   </div>
@@ -1344,16 +1445,8 @@ const AddAgent = () => {
         entry={editEntry}
         onSave={handleSave}
       />
-
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast((t) => ({ ...t, show: false }))}
-      />
     </>
   );
 };
 
 export default AddAgent;
-

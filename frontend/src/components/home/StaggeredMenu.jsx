@@ -347,9 +347,21 @@ export const StaggeredMenu = ({
             <div className="sm-panel-inner">
               <ul className="sm-panel-list" role="list" data-numbering={displayItemNumbering || undefined}>
                 {items && items.length ? (
-                  items.map((it, idx) => (
+                  items.filter(it => !it.isAccount).map((it, idx) => (
                     <li className="sm-panel-itemWrap" key={it.label + idx}>
-                      <a className="sm-panel-item" href={it.link} aria-label={it.ariaLabel} data-index={idx + 1}>
+                      <a 
+                        className="sm-panel-item" 
+                        href={it.link || "#"} 
+                        aria-label={it.ariaLabel} 
+                        data-index={idx + 1}
+                        onClick={(e) => {
+                          if (it.onClick) {
+                            e.preventDefault();
+                            it.onClick();
+                            closeMenu();
+                          }
+                        }}
+                      >
                         <span className="sm-panel-itemLabel">{it.label}</span>
                       </a>
                     </li>
@@ -374,6 +386,34 @@ export const StaggeredMenu = ({
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Account Section at the bottom */}
+              {items.find(it => it.isAccount) && (
+                <div className="mt-auto pt-8 border-t border-[#04b8ff]/10 sm-account-section">
+                   {items.filter(it => it.isAccount).map((it, idx) => (
+                     <div key={idx} className="flex items-center justify-between gap-4 py-4 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#04b8ff]/10 flex items-center justify-center text-[#04b8ff] font-bold text-sm border border-[#04b8ff]/20">
+                            {it.initials}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[#0a2a3a] font-bold text-sm leading-none mb-1">{it.name}</span>
+                            <span className="text-[#5a7a8a] text-xs truncate max-w-[150px]">{it.email}</span>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            it.onLogout();
+                            closeMenu();
+                          }}
+                          className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors border border-red-500/20 shadow-sm"
+                        >
+                          <i className="ri-logout-box-line text-lg"></i>
+                        </button>
+                     </div>
+                   ))}
                 </div>
               )}
             </div>

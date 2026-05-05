@@ -83,6 +83,32 @@ const AgentSettings = () => {
                   <label className="text-sm font-semibold text-slate-700">Email Address</label>
                   <input type="email" defaultValue="admin@swiftsupport.com" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1f88d9] focus:ring-1 focus:ring-[#1f88d9] transition-all" />
                 </div>
+
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                  <label className="text-sm font-semibold text-slate-700">Availability Status</label>
+                  <div className="flex gap-4">
+                    {[
+                      { label: "Available", color: "bg-emerald-500", desc: "Ready for new tickets" },
+                      { label: "Busy",      color: "bg-amber-500",   desc: "Completing current work" },
+                      { label: "Offline",   color: "bg-slate-400",   desc: "Not receiving assignments" },
+                    ].map((s) => (
+                      <div 
+                        key={s.label}
+                        className={`flex-1 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                          JSON.parse(localStorage.getItem("user") || "{}").status === s.label 
+                            ? 'border-[#1f88d9] bg-blue-50/30' 
+                            : 'border-gray-100 hover:border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-2 h-2 rounded-full ${s.color}`}></div>
+                          <span className="text-sm font-bold text-slate-800">{s.label}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500">{s.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}

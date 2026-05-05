@@ -30,10 +30,10 @@ export default function TestimonialsSection() {
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center flex flex-col items-center justify-center gap-3 mb-14">
           <ScrollFade delay={0} blur={4}>
             <div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-5"
+              className="inline-flex select-none items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold mb-5"
               style={{
                 background: "rgba(4,184,255,0.10)",
                 border: "1px solid rgba(4,184,255,0.25)",

@@ -1,19 +1,62 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { Search, Filter, MoreHorizontal, ArrowUpRight, CheckCircle2, Clock } from "lucide-react";
-import { fetchAllTickets } from "../../store/slices/ticketSlice";
+import axiosClient from "../../api/axiosClient";
+import Loader from "../../components/common/Loader.jsx";
+import { useSearch } from "../../context/SearchContext.jsx";
+import { useSocket } from "../../context/SocketContext.jsx";
 
 const PAGE_SIZE = 5;
 
 const AgentTicketHistory = () => {
-  const dispatch = useDispatch();
-  const { tickets, loading } = useSelector((state) => state.tickets);
+  const navigate = useNavigate();
+  const { searchTerm: globalSearchTerm } = useSearch();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
 
+  // Data Fetching
+  const { socket } = useSocket();
+
+  const getTickets = async () => {
+    try {
+      const { data } = await axiosClient.get("/tickets/getAllTickets");
+      setTickets(data.tickets || data.data || data);
+    } catch (err) {
+      console.error("Failed to fetch tickets:", err);
+    }
+  };
+
   useEffect(() => {
-    dispatch(fetchAllTickets());
-  }, [dispatch]);
+    setLoading(true);
+    getTickets().finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("ticket_deleted", (data) => {
+      setTickets(prev => prev.filter(t => t._id !== data.ticketId));
+    });
+
+    socket.on("ticket_created", () => getTickets());
+    socket.on("ticket_updated", () => getTickets());
+
+    return () => {
+      socket.off("ticket_deleted");
+      socket.off("ticket_created");
+      socket.off("ticket_updated");
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (globalSearchTerm !== undefined) {
+      setSearchTerm(globalSearchTerm);
+      setPage(1);
+    }
+  }, [globalSearchTerm]);
+
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -51,7 +94,7 @@ const AgentTicketHistory = () => {
     const q = searchTerm.toLowerCase();
     const id = (r._id || r.ticketId || "").toString().toLowerCase();
     const subject = (r.subject || r.title || r.issue || "").toLowerCase();
-    const user = (r.userName || r.userId?.name || r.customerName || "").toLowerCase();
+    const user = (r.customerId?.name || r.userName || r.userId?.name || r.customerName || "").toLowerCase();
     return id.includes(q) || subject.includes(q) || user.includes(q);
   });
 
@@ -110,7 +153,8 @@ const AgentTicketHistory = () => {
                 </tr>
               ) : (
                 paginated.map((ticket) => {
-                  const userName = ticket.userName || ticket.userId?.name || ticket.customerName || "Unknown";
+                  const userName = ticket.customerId?.name || ticket.userName || ticket.userId?.name || ticket.customerName || "Unknown User";
+                  const userEmail = ticket.customerId?.email || "";
                   const subject = ticket.subject || ticket.title || ticket.issue || "—";
                   const ticketId = ticket.ticketId || ticket._id?.slice(-6).toUpperCase() || "—";
                   const createdAt = ticket.createdAt
@@ -124,10 +168,13 @@ const AgentTicketHistory = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#1f88d9]/10 text-[#1f88d9] flex items-center justify-center font-bold text-xs">
-                            {userName.charAt(0).toUpperCase()}
+                          <div className="w-8 h-8 rounded-full bg-[#1f88d9]/10 text-[#1f88d9] flex items-center justify-center font-bold text-xs uppercase">
+                            {userName.charAt(0)}
                           </div>
-                          <span className="text-sm font-semibold text-slate-800">{userName}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-800">{userName}</span>
+                            {userEmail && <span className="text-[11px] text-gray-400 font-medium">{userEmail}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -143,7 +190,16 @@ const AgentTicketHistory = () => {
                         <span className="text-sm text-gray-500 font-medium">{createdAt}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button className="text-gray-400 hover:text-[#1f88d9] p-1.5 rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center">
+                        <button 
+                          onClick={() => {
+                            if (ticket.chatId) {
+                              navigate("/agent/chat", { state: { chatId: ticket.chatId } });
+                            } else {
+                              alert("No chat associated with this ticket.");
+                            }
+                          }}
+                          className="text-gray-400 hover:text-[#1f88d9] p-1.5 rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center"
+                        >
                           <ArrowUpRight size={18} />
                         </button>
                       </td>

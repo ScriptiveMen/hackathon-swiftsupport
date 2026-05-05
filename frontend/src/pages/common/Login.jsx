@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { useDispatch, useSelector } from "react-redux";
-import { loginUser, registerUser, clearError } from "../../store/slices/authSlice.js";
+import { useNavigate } from "react-router-dom";
+import axiosClient from "../../api/axiosClient.js";
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState("login");
@@ -10,48 +9,136 @@ export default function Login() {
     name: "",
     email: "",
     password: "",
-    role: "Customer",
-    organization: "Acme Corp",
+    organizationId: "",
   });
-  
+
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error, user } = useSelector((state) => state.auth);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const [orgs, setOrgs] = useState([]);
 
   useEffect(() => {
-    if (user) {
-      const role = user.role?.toLowerCase();
-      navigate(role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/", { replace: true });
-    }
-  }, [user, navigate]);
+    const fetchOrgs = async () => {
+      try {
+        const { data } = await axiosClient.get("/auth/organizations");
+        if (data.status) {
+          setOrgs(data.data);
+          if (data.data.length > 0) {
+            setSignupForm((prev) => ({
+              ...prev,
+              organizationId: data.data[0]._id,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch organizations:", err);
+        setError("Could not load organizations. Please ensure the backend is running.");
+      }
+    };
+    fetchOrgs();
+  }, []);
 
-  const orgs = ["Acme Corp", "TechNova", "GlobalSoft", "Nexus Labs"];
-  
   const switchTab = (tab) => {
     setActiveTab(tab);
-    dispatch(clearError());
+    setError(null);
+    setFieldErrors({});
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginForm.email || !loginForm.password) {
-      // We'll rely on server validation or add a temporary local error if needed, 
-      // but Redux will handle the main error state.
-      return;
+    const newErrors = {};
+    if (!loginForm.email) newErrors.loginEmail = "Email is required";
+    if (!loginForm.password) newErrors.loginPassword = "Password is required";
+    setFieldErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axiosClient.post("/auth/login", loginForm);
+      if (!data.token) {
+        throw new Error(data.message || "Login did not return an auth token");
+      }
+
+      localStorage.setItem("token", data.token);
+
+      let finalUser = data.user;
+      if (data.status && !data.user) {
+        const userRes = await axiosClient.get("/auth/getUser");
+        finalUser = userRes.data.data || userRes.data;
+      }
+
+      if (!finalUser) {
+        throw new Error("Login did not return user details");
+      }
+
+      localStorage.setItem("user", JSON.stringify(finalUser));
+
+      const role = finalUser.role?.toLowerCase();
+      navigate(
+        role === "admin" ? "/admin" : role === "agent" ? "/agent" : "/chat",
+        { replace: true },
+      );
+    } catch (err) {
+      console.error("Login Error:", err.response?.data || err.message);
+      if (err.response?.data?.errors) {
+        const backendErrors = {};
+        err.response.data.errors.forEach((errItem) => {
+          backendErrors[
+            `login${errItem.path.charAt(0).toUpperCase() + errItem.path.slice(1)}`
+          ] = errItem.msg;
+        });
+        setFieldErrors(backendErrors);
+      } else {
+        setError(err.response?.data?.message || "Login failed");
+      }
+    } finally {
+      setLoading(false);
     }
-    dispatch(loginUser(loginForm));
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.email || !signupForm.password) {
-      return;
-    }
-    dispatch(registerUser(signupForm)).then((result) => {
-      if (registerUser.fulfilled.match(result)) {
-        switchTab("login");
+    const newErrors = {};
+    if (!signupForm.name) newErrors.signupName = "Name is required";
+    if (!signupForm.email) newErrors.signupEmail = "Email is required";
+    if (!signupForm.password) newErrors.signupPassword = "Password is required";
+    if (!signupForm.organizationId)
+      newErrors.signupOrganizationId = "Organization is required";
+    setFieldErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axiosClient.post(
+        "/auth/registerCustomer",
+        signupForm,
+      );
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      navigate("/chat", { replace: true });
+    } catch (err) {
+      console.error("Signup Error:", err.response?.data || err.message);
+      if (err.response?.data?.errors) {
+        const backendErrors = {};
+        err.response.data.errors.forEach((errItem) => {
+          backendErrors[
+            `signup${errItem.path.charAt(0).toUpperCase() + errItem.path.slice(1)}`
+          ] = errItem.msg;
+        });
+        setFieldErrors(backendErrors);
+      } else {
+        setError(err.response?.data?.message || "Signup failed");
       }
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── reusable styles ──────────────────────────────────── */
@@ -156,7 +243,7 @@ export default function Login() {
             <BoltIcon />
           </div> */}
           <h1 className="text-[40px] font-[Switzer_Extrabold] font-[900] flex leading-1 text-[#0a2a3a] tracking-normal">
-            Swift Support 
+            Swift Support
           </h1>
         </div>
         <p className="text-[13px] text-[#4a7a8a] text-center leading-relaxed mb-6">
@@ -213,106 +300,141 @@ export default function Login() {
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Full Name</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.signupName ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <UserIcon />
                   </span>
                   <input
-                    className={inputCls}
+                    className={`${inputCls} ${fieldErrors.signupName ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
                     type="text"
                     placeholder="John Doe"
                     value={signupForm.name}
-                    onChange={(e) =>
-                      setSignupForm({ ...signupForm, name: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setSignupForm({ ...signupForm, name: e.target.value });
+                      if (fieldErrors.signupName)
+                        setFieldErrors({ ...fieldErrors, signupName: "" });
+                    }}
                   />
                 </div>
+                {fieldErrors.signupName && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.signupName}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Email Address</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.signupEmail ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <MailIcon />
                   </span>
                   <input
-                    className={inputCls}
+                    className={`${inputCls} ${fieldErrors.signupEmail ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
                     type="email"
                     placeholder="john@nexus.ai"
                     value={signupForm.email}
-                    onChange={(e) =>
-                      setSignupForm({ ...signupForm, email: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setSignupForm({ ...signupForm, email: e.target.value });
+                      if (fieldErrors.signupEmail)
+                        setFieldErrors({ ...fieldErrors, signupEmail: "" });
+                    }}
                   />
                 </div>
+                {fieldErrors.signupEmail && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.signupEmail}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Password</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.signupPassword ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <LockIcon />
                   </span>
                   <input
-                    className={inputCls}
+                    className={`${inputCls} ${fieldErrors.signupPassword ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
                     type="password"
                     placeholder="Min. 6 characters"
                     value={signupForm.password}
-                    onChange={(e) =>
-                      setSignupForm({ ...signupForm, password: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setSignupForm({
+                        ...signupForm,
+                        password: e.target.value,
+                      });
+                      if (fieldErrors.signupPassword)
+                        setFieldErrors({ ...fieldErrors, signupPassword: "" });
+                    }}
                   />
                 </div>
+                {fieldErrors.signupPassword && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.signupPassword}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className={labelCls}>System Role</label>
-                <div className="flex gap-2">
-                  {["Customer", "Agent", "Admin"].map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setSignupForm({ ...signupForm, role })}
-                      className={`flex-1 py-2 rounded-lg text-[13px] font-medium border transition
-                        ${
-                          signupForm.role === role
-                            ? "bg-[#04b8ff]/10 border-[#04b8ff] text-[#0090cc] shadow-[0_0_0_3px_rgba(4,184,255,0.12)]"
-                            : "bg-white border-[#cce8f4] text-[#5a7a8a] hover:border-[#04b8ff]/50 hover:text-[#0090cc]"
-                        }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className={labelCls}>Select Organization</label>
+                <label className={labelCls}>Organization</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.signupOrganizationId ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <BriefIcon />
                   </span>
                   <select
-                    value={signupForm.organization}
-                    onChange={(e) =>
+                    className={`${inputCls} appearance-none cursor-pointer ${fieldErrors.signupOrganizationId ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
+                    value={signupForm.organizationId}
+                    onChange={(e) => {
                       setSignupForm({
                         ...signupForm,
-                        organization: e.target.value,
-                      })
-                    }
-                    className="w-full bg-white border border-[#0bbaff]/30 rounded-lg pl-10 pr-8 py-2.5
-                               text-[13.5px] text-[#1e3a4a] outline-none appearance-none cursor-pointer
-                               focus:border-[#04b8ff] focus:ring-2 focus:ring-[#04b8ff]/15 transition shadow-sm"
+                        organizationId: e.target.value,
+                      });
+                      if (fieldErrors.signupOrganizationId)
+                        setFieldErrors({
+                          ...fieldErrors,
+                          signupOrganizationId: "",
+                        });
+                    }}
                   >
+                    <option value="" disabled>
+                      {orgs.length === 0 ? "No organizations found" : "Select Organization"}
+                    </option>
                     {orgs.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
+                      <option key={o._id} value={o._id}>
+                        {o.name}
                       </option>
                     ))}
                   </select>
-                  <span className="absolute right-3 text-[#7aaabb] text-xs pointer-events-none">
+                  <span
+                    className={`absolute right-3 pointer-events-none text-xs ${fieldErrors.signupOrganizationId ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     ▾
                   </span>
                 </div>
+                {fieldErrors.signupOrganizationId && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.signupOrganizationId}
+                  </span>
+                )}
+                {orgs.length === 0 && !loading && (
+                  <p className="text-[11px] text-[#7aaabb] mt-2">
+                    Don't see your organization?{" "}
+                    <span 
+                      onClick={() => navigate("/admin-register")}
+                      className="text-[#04b8ff] font-semibold cursor-pointer hover:underline"
+                    >
+                      Create one here
+                    </span>
+                  </p>
+                )}
               </div>
 
               <button
@@ -356,37 +478,55 @@ export default function Login() {
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Email Address</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.loginEmail ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <MailIcon />
                   </span>
                   <input
-                    className={inputCls}
+                    className={`${inputCls} ${fieldErrors.loginEmail ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
                     type="email"
                     placeholder="john@nexus.ai"
                     value={loginForm.email}
-                    onChange={(e) =>
-                      setLoginForm({ ...loginForm, email: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setLoginForm({ ...loginForm, email: e.target.value });
+                      if (fieldErrors.loginEmail)
+                        setFieldErrors({ ...fieldErrors, loginEmail: "" });
+                    }}
                   />
                 </div>
+                {fieldErrors.loginEmail && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.loginEmail}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className={labelCls}>Password</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-[#7aaabb]">
+                  <span
+                    className={`absolute left-3 ${fieldErrors.loginPassword ? "text-red-400" : "text-[#7aaabb]"}`}
+                  >
                     <LockIcon />
                   </span>
                   <input
-                    className={inputCls}
+                    className={`${inputCls} ${fieldErrors.loginPassword ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
                     type="password"
                     placeholder="Min. 6 characters"
                     value={loginForm.password}
-                    onChange={(e) =>
-                      setLoginForm({ ...loginForm, password: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setLoginForm({ ...loginForm, password: e.target.value });
+                      if (fieldErrors.loginPassword)
+                        setFieldErrors({ ...fieldErrors, loginPassword: "" });
+                    }}
                   />
                 </div>
+                {fieldErrors.loginPassword && (
+                  <span className="text-xs text-red-500 font-medium">
+                    {fieldErrors.loginPassword}
+                  </span>
+                )}
               </div>
 
               <button
