@@ -23,6 +23,7 @@ export default function Register() {
       setFieldErrors({ ...fieldErrors, [e.target.name]: "" });
     }
   };
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +36,8 @@ export default function Register() {
     } else {
       const emailRegex = /^admin@[a-zA-Z0-9-]+\.com$/;
       if (!emailRegex.test(form.email)) {
-        newErrors.email = "Email format should be like admin@organization_name.com";
+        newErrors.email =
+          "Email format should be like admin@organization_name.com";
       }
     }
     if (!form.password) newErrors.password = "Password is required";
@@ -52,7 +54,7 @@ export default function Register() {
     try {
       setLoading(true);
 
-      const res = await axiosClient.post("/auth/registerAdmin", form);
+      const res = await axiosClient.post(`${baseUrl}/api/auth/registerAdmin`, form);
 
       setSuccess(true);
       setForm({

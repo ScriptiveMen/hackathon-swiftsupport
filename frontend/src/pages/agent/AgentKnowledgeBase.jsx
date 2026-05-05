@@ -321,7 +321,7 @@ const AgentKnowledgeBase = () => {
     const getFaqs = async () => {
       setLoading(true);
       try {
-        const { data } = await axiosClient.get("/knowledge/faq");
+        const { data } = await axiosClient.get("/knowledge/getAllFAQ");
         setFaqs(data.data || data.faqs || data);
       } catch (err) {
         console.error("Failed to fetch FAQs:", err);
@@ -376,12 +376,12 @@ const AgentKnowledgeBase = () => {
   const handleSave = async (form) => {
     try {
       if (editEntry) {
-        await axiosClient.put(`/knowledge/faq/${editEntry._id}`, form);
+        await axiosClient.put(`/knowledge/updateFAQ/${editEntry._id}`, form);
       } else {
-        await axiosClient.post("/knowledge/faq", form);
+        await axiosClient.post("/knowledge/createFAQ", form);
       }
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       console.error("Failed to save FAQ:", err);
@@ -391,7 +391,7 @@ const AgentKnowledgeBase = () => {
 
   const handleDuplicate = async (row) => {
     try {
-      await axiosClient.post("/knowledge/faq", {
+      await axiosClient.post("/knowledge/createFAQ", {
         question: row.question + " (copy)",
         variant: row.variant,
         answer: row.answer,
@@ -399,7 +399,7 @@ const AgentKnowledgeBase = () => {
         status: "Pending",
       });
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       console.error("Failed to duplicate FAQ:", err);
@@ -409,11 +409,11 @@ const AgentKnowledgeBase = () => {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await axiosClient.delete(`/knowledge/faq/${itemToDelete}`);
+      await axiosClient.delete(`/knowledge/deleteFAQ/${itemToDelete}`);
       setDeleteConfirmOpen(false);
       setItemToDelete(null);
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/faq");
+      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       console.error("Failed to delete FAQ:", err);

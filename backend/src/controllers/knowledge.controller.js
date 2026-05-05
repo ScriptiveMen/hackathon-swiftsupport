@@ -18,6 +18,7 @@ const getAllFAQ = async (req, res) => {
 
 
     const knowledgeBase = await knowledgeModel.find({ organizationId });
+    console.log(`[Knowledge] Found ${knowledgeBase.length} FAQs for Org: ${organizationId}`);
 
     res.status(200).json({ status: true, data: knowledgeBase });
   } catch (error) {
@@ -31,7 +32,7 @@ const getAllFAQ = async (req, res) => {
 const createFAQ = async (req, res) => {
   try {
     const { organizationId, userId } = req.user;
-    let { question, answer, tags } = req.body;
+    let { question, answer, variant, category, status, tags } = req.body;
 
     // Validation
     if (!question || !answer) {
@@ -40,7 +41,7 @@ const createFAQ = async (req, res) => {
         .json({ status: false, message: "Question and answer are required" });
     }
 
-    // Process tags: convert comma-separated string to array, or ensure it's an array
+    // Process tags
     let tagArray = [];
     if (tags) {
       if (Array.isArray(tags)) {
@@ -53,7 +54,6 @@ const createFAQ = async (req, res) => {
       }
     }
 
-    // Optional: verify user belongs to organization
     const user = await userModel.findById(userId);
     if (!user || user.organizationId.toString() !== organizationId.toString() || user.role === "customer") {
       return res
@@ -65,7 +65,10 @@ const createFAQ = async (req, res) => {
       organizationId,
       question,
       answer,
-      tags: tagArray, // ✅ use processed array
+      variant,
+      category,
+      status,
+      tags: tagArray,
     });
 
     res.status(201).json({
@@ -81,10 +84,48 @@ const createFAQ = async (req, res) => {
   }
 };
 
+const bulkUpload = async (req, res) => {
+  try {
+    const { organizationId, userId } = req.user;
+    const { faqs } = req.body;
+
+    if (!faqs || !Array.isArray(faqs)) {
+      return res.status(400).json({ status: false, message: "FAQs array is required" });
+    }
+
+    const user = await userModel.findById(userId);
+    if (!user || user.organizationId.toString() !== organizationId.toString() || user.role === "customer") {
+      return res.status(403).json({ status: false, message: "Unauthorized access" });
+    }
+
+    const processedFaqs = faqs.map(faq => ({
+      question: faq.question,
+      answer: faq.answer,
+      variant: faq.variant,
+      category: faq.category || "Billing",
+      status: faq.status || "Pending",
+      organizationId
+    }));
+
+    const result = await knowledgeModel.insertMany(processedFaqs);
+
+    res.status(201).json({
+      status: true,
+      message: `${result.length} FAQs uploaded successfully`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: `Bulk upload failed: ${error.message}`
+    });
+  }
+};
+
 const updateFAQ = async (req, res) => {
   try {
     const { organizationId, userId } = req.user;
-    const { question, answer, tags } = req.body;
+    const { question, answer, variant, category, status, tags } = req.body;
 
     let tagArray = [];
     if (tags) {
@@ -112,13 +153,14 @@ const updateFAQ = async (req, res) => {
       return res.status(404).json({ status: false, message: "FAQ not found" });
     }
 
-    const updateFAQ = await knowledgeModel.findByIdAndUpdate(
-      {
-        _id: req.params.id,
-      },
+    const updatedFAQ = await knowledgeModel.findByIdAndUpdate(
+      req.params.id,
       {
         question,
         answer,
+        variant,
+        category,
+        status,
         tags: tagArray,
       },
       { new: true },
@@ -127,7 +169,7 @@ const updateFAQ = async (req, res) => {
     res.status(200).json({
       status: true,
       message: "FAQ Updated Successfully",
-      data: updateFAQ,
+      data: updatedFAQ,
     });
   } catch (error) {
     res.status(500).json({
@@ -199,6 +241,8 @@ const searchFAQ = async (req, res) => {
       $or: [
         { question: { $regex: safeQuery, $options: "i" } },
         { answer: { $regex: safeQuery, $options: "i" } },
+        { variant: { $regex: safeQuery, $options: "i" } },
+        { category: { $regex: safeQuery, $options: "i" } },
         { tags: { $regex: safeQuery, $options: "i" } },
       ],
     });
@@ -220,4 +264,5 @@ module.exports = {
   updateFAQ,
   deleteFAQ,
   searchFAQ,
+  bulkUpload
 };

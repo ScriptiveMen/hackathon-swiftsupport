@@ -233,15 +233,20 @@ const getUserById = async (req, res) => {
   try {
     const { userId, organizationId } = req.user;
 
-    const user = await userModel.findById(userId);
+    const user = await userModel.findById(userId).populate("organizationId", "name");
 
-    if (!user || user.organizationId.toString() !== organizationId.toString()) {
+    if (!user || user.organizationId._id.toString() !== organizationId.toString()) {
       return res
         .status(403)
         .json({ status: false, message: "Unauthorized access" });
     }
 
-    res.status(200).json({ status: true, data: user });
+    const userData = user.toObject();
+    if (user.organizationId) {
+      userData.organizationName = user.organizationId.name;
+    }
+
+    res.status(200).json({ status: true, data: userData });
   } catch (error) {
     res
       .status(500)
@@ -299,6 +304,16 @@ const getAllAgents = async (req, res) => {
   }
 };
 
+const heartbeat = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    await userModel.findByIdAndUpdate(userId, { lastActive: new Date() });
+    res.status(200).json({ status: true, message: "Heartbeat received" });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -307,4 +322,5 @@ module.exports = {
   getUserById,
   getAllUsers,
   getAllAgents,
+  heartbeat,
 };

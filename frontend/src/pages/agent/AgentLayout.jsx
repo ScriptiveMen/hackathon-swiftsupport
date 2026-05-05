@@ -25,7 +25,7 @@ const AgentLayout = () => {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
         <AgentTopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         
-        <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, overflowY: "auto", position: "relative", display: "flex", flexDirection: "column" }}>
           <Outlet />
         </div>
       </div>

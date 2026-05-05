@@ -7,7 +7,8 @@ const {
   createFAQ,
   updateFAQ,
   deleteFAQ,
-  searchFAQ
+  searchFAQ,
+  bulkUpload
 } = require("../controllers/knowledge.controller");
 
 const authMiddleware = require("../middleware/auth.middleware");
@@ -15,9 +16,11 @@ const authMiddleware = require("../middleware/auth.middleware");
 // Get Knowledge Base
 router.get("/getAllFAQ", authMiddleware, getAllFAQ);
 
-// // Create Knowledge Base Entry
-router.post('/createFAQ', authMiddleware, createFAQ)
-;
+// Create Knowledge Base Entry
+router.post('/createFAQ', authMiddleware, createFAQ);
+
+// Bulk Upload Knowledge Base Entries
+router.post('/bulkUpload', authMiddleware, bulkUpload);
 // // Update Knowledge Base Entry
 router.put('/updateFAQ/:id', authMiddleware, updateFAQ)
 

@@ -14,6 +14,8 @@ const PRIORITIES = ["All", "Low", "Medium", "High", "Urgent"];
 const STATUSES = ["All", "Open", "In Progress", "Resolved", "Closed"];
 const PAGE_SIZE = 5;
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
 const PRIORITY_COLORS = {
   "Urgent": { bg: "#fef2f2", color: "#dc2626" },
   "High":   { bg: "#fffbeb", color: "#d97706" },
@@ -146,10 +148,10 @@ export default function Tickets() {
   const fetchData = async () => {
     // We can do background refresh here
     try {
-      const ticketRes = await axiosClient.get("/tickets/getAllTickets");
+      const ticketRes = await axiosClient.get(`${baseUrl}/api/tickets/getAllTickets`);
       setTickets(ticketRes.data.tickets || ticketRes.data.data || ticketRes.data);
       
-      const agentRes = await axiosClient.get("/auth/agents");
+      const agentRes = await axiosClient.get(`${baseUrl}/api/auth/agents`);
       setAgents(agentRes.data.agents || agentRes.data.data || agentRes.data);
     } catch (err) {
       console.error("Failed to fetch tickets/agents:", err);
@@ -225,20 +227,20 @@ export default function Tickets() {
       const loadingToast = toast.loading(form.action === "delete" ? "Deleting ticket..." : "Updating ticket...");
       try {
         if (form.action === "delete") {
-          await axiosClient.delete(`/tickets/deleteTicket/${editEntry._id}`);
+          await axiosClient.delete(`${baseUrl}/api/tickets/deleteTicket/${editEntry._id}`);
           toast.success("Ticket deleted successfully", { id: loadingToast });
         } else {
           if (form.status !== editEntry.status) {
-            await axiosClient.put(`/tickets/ticketStatusUpdate/${editEntry._id}`, { status: form.status });
+            await axiosClient.put(`${baseUrl}/api/tickets/ticketStatusUpdate/${editEntry._id}`, { status: form.status });
           }
           if (form.assignedTo !== (editEntry.assignedTo?._id || editEntry.assignedTo || "Unassigned")) {
             const agentId = form.assignedTo === "Unassigned" ? null : form.assignedTo;
-            await axiosClient.put(`/tickets/ticketAssginedToAgent/${editEntry._id}`, { agentId });
+            await axiosClient.put(`${baseUrl}/api/tickets/ticketAssginedToAgent/${editEntry._id}`, { agentId });
           }
           toast.success("Ticket updated successfully", { id: loadingToast });
         }
         // Refresh
-        const { data } = await axiosClient.get("/tickets/getAllTickets");
+        const { data } = await axiosClient.get(`${baseUrl}/api/tickets/getAllTickets`);
         setTickets(data.tickets || data.data || data);
       } catch (err) {
         console.error("Failed to update/delete ticket:", err);

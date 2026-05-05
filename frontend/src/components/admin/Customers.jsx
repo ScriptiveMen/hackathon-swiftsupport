@@ -28,6 +28,8 @@ const PLANS = ["All", "Starter", "Pro", "Enterprise"];
 const STATUSES = ["All", "Active", "Inactive"];
 const PAGE_SIZE = 5;
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
 const PLAN_COLORS = {
   Starter: { bg: "#f0fdf4", color: "#16a34a" },
   Pro: { bg: "#eff6ff", color: "#2563eb" },
@@ -78,7 +80,7 @@ const Customers = () => {
 
   const getUsers = async () => {
     try {
-      const { data } = await axiosClient.get("/auth/users");
+      const { data } = await axiosClient.get(`${baseUrl}/api/auth/users`);
       setUsers(data.users || data.data || data);
     } catch (err) {
       console.error("Failed to fetch users:", err);
@@ -124,7 +126,7 @@ const Customers = () => {
     ));
 
     try {
-      await axiosClient.put(`/auth/toggleAccountStatus/${user._id}`, { isActive: newStatus });
+      await axiosClient.put(`${baseUrl}/api/auth/toggleAccountStatus/${user._id}`, { isActive: newStatus });
       toast.success(`Account ${newStatus ? "Enabled" : "Disabled"} for ${user.name}`);
     } catch (err) {
       toast.error("Failed to update account status");

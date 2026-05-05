@@ -8,29 +8,40 @@ const aiService = require("../service/ai.service");
 
 async function aiResponse(req, res) {
   try {
-    const { userId, organizationId, role } = req.user; // ✅ added role
+    const { userId, organizationId, role } = req.user;
     let { question, chatId } = req.body;
 
     if (!question) {
       return res.status(400).json({ status: false, message: "Question is required" });
     }
 
+    const io = req.app.get("socketio");
+
+    // Helper to save and emit messages
+    const saveUserMessage = async (cid) => {
+      const msg = await messageModel.create({ chatId: cid, sender: "user", content: question });
+      if (io) io.to(`chat_${String(cid)}`).emit("receive_message", msg.toObject());
+      return msg;
+    };
+    const saveAiMessage = async (cid, reply) => {
+      const msg = await messageModel.create({ chatId: cid, sender: "ai", content: reply });
+      if (io) io.to(`chat_${String(cid)}`).emit("receive_message", msg.toObject());
+      return msg;
+    };
+
     // If chatId provided, validate it
     let chat = null;
     let ticket = null;
-    let isExistingChat = false;
-
     if (chatId) {
       chat = await chatModel.findById(chatId);
       if (!chat) {
         return res.status(404).json({ status: false, message: "Chat not found" });
       }
       ticket = await ticketModel.findOne({ chatId });
-      isExistingChat = true;
 
-      // If agent assigned and customer is talking → no AI, just save message
+      // If agent assigned and customer is talking → no AI, just save/emit message
       if (ticket && ticket.assignedTo && role === "customer") {
-        await messageModel.create({ chatId, sender: "user", content: question });
+        await saveUserMessage(chatId);
         return res.status(200).json({
           status: true,
           answer: "Your message has been sent to the agent. They'll reply soon.",
@@ -49,32 +60,21 @@ async function aiResponse(req, res) {
     const userPrompt = `${kbText}\n\nCustomer Question: ${question}`;
 
     // Generate AI response
-    let aiReply = await aiService.generateResponse(userPrompt, ""); // adjust if your service expects 2 params
+    let aiReply = await aiService.generateResponse(userPrompt, "");
     if (!aiReply) {
       return res.status(500).json({ status: false, message: "AI service failed" });
     }
 
-    // Helper to save messages
-    const saveUserMessage = async (cid) => {
-      await messageModel.create({ chatId: cid, sender: "user", content: question });
-    };
-    const saveAiMessage = async (cid, reply) => {
-      await messageModel.create({ chatId: cid, sender: "ai", content: reply });
-    };
-
     // CASE: AI wants to create a ticket
     if (aiReply.startsWith("CREATE_TICKET:")) {
-      // Use existing chat OR create new one
       let targetChatId = chatId;
       if (!targetChatId) {
         const newChat = await chatModel.create({ organizationId, userId, status: "active" });
         targetChatId = newChat._id;
       }
 
-      // Save user message
       await saveUserMessage(targetChatId);
 
-      // Parse ticket details
       const ticketSummary = aiReply.replace("CREATE_TICKET:", "").trim();
       const match = ticketSummary.match(/title:\s*(.*?),\s*description:\s*(.*?),\s*priority:\s*(.*?),\s*status:\s*(.*?)(?:\.|$)/i);
       let title = "Support needed", description = question, priority = "medium", status = "open";
@@ -86,7 +86,6 @@ async function aiResponse(req, res) {
         if (["open","in-progress","resolved","closed"].includes(rawStatus)) status = rawStatus;
       }
 
-      // Create ticket linked to chat
       const newTicket = await ticketModel.create({
         userId,
         organizationId,
@@ -109,7 +108,7 @@ async function aiResponse(req, res) {
       });
     }
 
-    // CASE: Normal AI answer – save messages if chat exists or create a new chat
+    // CASE: Normal AI answer
     let targetChatId = chatId;
     if (!targetChatId) {
       const newChat = await chatModel.create({ organizationId, userId, status: "active" });
@@ -161,7 +160,6 @@ async function aiSuggestion(req, res) {
         .json({ status: false, message: "Ticket not found" });
     }
 
-    // fetching the last 5 messages from the chat for context
     const messages = await messageModel
       .find({ chatId: ticket.chatId })
       .sort({ createdAt: -1 })
@@ -176,7 +174,6 @@ async function aiSuggestion(req, res) {
       )
       .join("\n");
 
-    // fetching knowledge base entries
     const knowledgeBaseEntries = await knowledgeBaseModel
       .find({ organizationId })
       .select("-_id question answer tags");
@@ -185,7 +182,6 @@ async function aiSuggestion(req, res) {
       .map((entry) => `Q: ${entry.question}\nA: ${entry.answer}`)
       .join("\n\n");
 
-    // system instruction for AI suggestion
     const systemInstruction = `
       You are an AI assistant for a customer support agent. Your job is to polish and enhance the agent's rough draft reply.
 

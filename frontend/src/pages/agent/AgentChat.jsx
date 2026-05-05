@@ -56,14 +56,6 @@ const AgentChat = () => {
       const { data } = await axiosClient.get("/chat/getAllChats");
       const fetchedChats = data.data || [];
       setChats(fetchedChats);
-
-      const routedChatId = location.state?.chatId;
-      if (routedChatId) {
-        const chatToSelect = fetchedChats.find((c) => c._id === routedChatId);
-        if (chatToSelect) {
-          handleChatClick(chatToSelect);
-        }
-      }
     } catch (err) {
       console.error("Failed to fetch chats:", err);
     } finally {
@@ -88,6 +80,9 @@ const AgentChat = () => {
     };
 
     socket.on("receive_message", handleReceiveMessage);
+    if (activeChatId) {
+      socket.emit("join_chat", activeChatId);
+    }
 
     socket.on("user_typing", (data) => {
       if (String(data.chatId || activeChatId) === String(activeChatId)) {
@@ -106,10 +101,28 @@ const AgentChat = () => {
     };
   }, [socket, activeChatId]);
 
+  // Handle routed chat selection
+  useEffect(() => {
+    const routedChatId = location.state?.chatId;
+    if (routedChatId && chats.length > 0) {
+      const chatToSelect = chats.find((c) => String(c._id) === String(routedChatId));
+      if (chatToSelect) {
+        handleChatClick(chatToSelect);
+      } else {
+        // Fallback: if not in list, fetch messages directly
+        setActiveChatId(routedChatId);
+        axiosClient.get(`/chat/getChatById/${routedChatId}`).then(res => {
+          setActiveChatMessages(res.data.data || []);
+          setActiveChat({ _id: routedChatId, userId: { name: "Customer" } });
+        }).catch(err => console.error("Failed to fetch routed chat:", err));
+      }
+    }
+  }, [location.state?.chatId, chats.length]);
+
   // Data Fetching
   useEffect(() => {
     fetchChats();
-  }, [location.state?.chatId]);
+  }, []);
 
   useEffect(() => {
     if (!socket || !activeChatId || !inputMsg.trim()) return;
@@ -140,15 +153,34 @@ const AgentChat = () => {
     const messageText = inputMsg;
     setInputMsg("");
 
-    // Optimistic UI could be added here, but we'll wait for the server response/socket emit
+    // Optimistic UI update
+    const tempId = Date.now().toString();
+    const optimisticMsg = {
+      _id: tempId,
+      chatId: activeChatId,
+      sender: "agent",
+      content: messageText,
+      createdAt: new Date().toISOString(),
+    };
+    setActiveChatMessages((prev) => [...prev, optimisticMsg]);
+
     try {
-      await axiosClient.post(`/chat/sendMsg/${activeChatId}`, {
+      const { data } = await axiosClient.post(`/chat/sendMsg/${activeChatId}`, {
         message: messageText,
         sender: "agent",
       });
-      // The message will be received via socket.on("receive_message")
+      
+      // Update the optimistic message with real DB data if needed
+      if (data.data) {
+        setActiveChatMessages(prev => 
+          prev.map(m => m._id === tempId ? data.data : m)
+        );
+      }
     } catch (err) {
       console.error("Failed to send message:", err);
+      // Rollback optimistic update on error
+      setActiveChatMessages(prev => prev.filter(m => m._id !== tempId));
+      toast.error("Failed to send message");
     }
   };
 
