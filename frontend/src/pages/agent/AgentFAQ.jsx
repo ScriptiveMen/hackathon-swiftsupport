@@ -16,8 +16,11 @@ const AgentFAQ = () => {
     const getFaqs = async () => {
       setLoading(true);
       try {
-        const { data } = await axiosClient.get("/knowledge/faq");
-        setFaqs(data.data || data.faqs || data);
+        const { data } = await axiosClient.get("/knowledge/getAllFAQ");
+        console.log("Raw FAQ data from backend:", data);
+        const fetchedFaqs = data.data || data.faqs || [];
+        console.log("Processed FAQ count:", fetchedFaqs.length);
+        setFaqs(fetchedFaqs);
       } catch (err) {
         console.error("Failed to fetch FAQs:", err);
       } finally {
@@ -56,6 +59,9 @@ const AgentFAQ = () => {
     .map((section) => ({
       ...section,
       questions: section.questions.filter((faq) => {
+        if (searchTerm) {
+          console.log("Filtering by searchTerm:", searchTerm);
+        }
         if (!searchTerm) return true;
         const term = searchTerm.toLowerCase();
         return (

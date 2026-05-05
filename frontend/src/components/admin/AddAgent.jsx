@@ -26,6 +26,7 @@ import toast from "react-hot-toast";
 import { useSocket } from "../../context/SocketContext.jsx";
 
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
 const DEPARTMENTS = ["All", "Tech Support", "Billing", "Sales", "General"];
 
@@ -611,7 +612,7 @@ const AddAgent = () => {
 
   const getAgents = async () => {
     try {
-      const { data } = await axiosClient.get("/auth/agents");
+      const { data } = await axiosClient.get(`${baseUrl}/api/auth/agents`);
       setAgents(data.agents || data.data || data);
     } catch (err) {
       console.error("Failed to fetch agents:", err);
@@ -631,7 +632,7 @@ const AddAgent = () => {
     ));
 
     try {
-      await axiosClient.put(`/auth/toggleAccountStatus/${agent._id}`, { isActive: newStatus });
+      await axiosClient.put(`${baseUrl}/api/auth/toggleAccountStatus/${agent._id}`, { isActive: newStatus });
     } catch (err) {
       console.error("Failed to toggle agent account status:", err);
       // Rollback
@@ -718,10 +719,10 @@ const AddAgent = () => {
       // Edit logic using axiosClient
       try {
         const agentId = editEntry._id || editEntry.id;
-        await axiosClient.put(`/auth/updateAgent/${agentId}`, form);
+        await axiosClient.put(`${baseUrl}/api/auth/updateAgent/${agentId}`, form);
         showToast("Profile update saved successfully.", "success");
         // Re-fetch agents
-        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        const { data: fetchRes } = await axiosClient.get(`${baseUrl}/api/auth/agents`);
         setAgents(fetchRes.agents || fetchRes.data || fetchRes);
       } catch (err) {
         showToast(
@@ -732,10 +733,10 @@ const AddAgent = () => {
     } else {
       // Register new agent via API
       try {
-        await axiosClient.post("/auth/createAgent", form);
+        await axiosClient.post(`${baseUrl}/api/auth/register`, form);
         showToast("Agent added successfully!");
         // Re-fetch agents
-        const { data: fetchRes } = await axiosClient.get("/auth/agents");
+        const { data: fetchRes } = await axiosClient.get(`${baseUrl}/api/auth/agents`);
         setAgents(fetchRes.agents || fetchRes.data || fetchRes);
       } catch (err) {
         showToast(

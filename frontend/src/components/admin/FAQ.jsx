@@ -9,6 +9,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useSearch } from "../../context/SearchContext.jsx";
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
 const Toast = ({ show, message, type = "success", onClose }) => {
   useEffect(() => {
@@ -608,7 +609,7 @@ const FAQ = () => {
     const fetchFaqs = async () => {
       setLoading(true);
       try {
-        const { data } = await axiosClient.get("/knowledge/getAllFAQ");
+        const { data } = await axiosClient.get(`${baseUrl}/api/knowledge/getAllFAQ`);
         setFaqs(data.data || data.faqs || data);
       } catch (err) {
         console.error("Failed to fetch FAQs:", err);
@@ -666,14 +667,14 @@ const FAQ = () => {
   const handleSave = async (form) => {
     try {
       if (editEntry) {
-        await axiosClient.put(`/knowledge/updateFAQ/${editEntry._id}`, form);
+        await axiosClient.put(`${baseUrl}/api/knowledge/updateFAQ/${editEntry._id}`, form);
         showToast("Entry updated successfully!");
       } else {
-        await axiosClient.post("/knowledge/createFAQ", form);
+        await axiosClient.post(`${baseUrl}/api/knowledge/createFAQ`, form);
         showToast("Entry added successfully!");
       }
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
+      const { data } = await axiosClient.get(`${baseUrl}/api/knowledge/getAllFAQ`);
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       showToast(err.response?.data?.message || "Action failed.", "error");
@@ -684,11 +685,11 @@ const FAQ = () => {
   const handleBulkUpload = async (faqsToUpload) => {
     try {
       setLoading(true);
-      const { data } = await axiosClient.post("/knowledge/bulkUpload", { faqs: faqsToUpload });
+      const { data } = await axiosClient.post(`${baseUrl}/api/knowledge/bulkUpload`, { faqs: faqsToUpload });
       showToast(data.message || "Bulk upload successful!");
       
       // Refresh
-      const refresh = await axiosClient.get("/knowledge/getAllFAQ");
+      const refresh = await axiosClient.get(`${baseUrl}/api/knowledge/getAllFAQ`);
       setFaqs(refresh.data.data || refresh.data.faqs || refresh.data);
     } catch (err) {
       showToast(err.response?.data?.message || "Bulk upload failed.", "error");
@@ -706,10 +707,10 @@ const FAQ = () => {
       status: "Pending"
     };
     try {
-      await axiosClient.post("/knowledge/createFAQ", copyForm);
+      await axiosClient.post(`${baseUrl}/api/knowledge/createFAQ`, copyForm);
       showToast("Entry duplicated!");
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
+      const { data } = await axiosClient.get(`${baseUrl}/api/knowledge/getAllFAQ`);
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to duplicate.", "error");
@@ -719,12 +720,12 @@ const FAQ = () => {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await axiosClient.delete(`/knowledge/deleteFAQ/${itemToDelete}`);
+      await axiosClient.delete(`${baseUrl}/api/knowledge/deleteFAQ/${itemToDelete}`);
       showToast("Entry deleted.");
       setDeleteConfirmOpen(false);
       setItemToDelete(null);
       // Refresh
-      const { data } = await axiosClient.get("/knowledge/getAllFAQ");
+      const { data } = await axiosClient.get(`${baseUrl}/api/knowledge/getAllFAQ`);
       setFaqs(data.data || data.faqs || data);
     } catch (err) {
       showToast(err.response?.data?.message || "Delete failed.", "error");

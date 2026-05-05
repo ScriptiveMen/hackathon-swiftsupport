@@ -26,6 +26,7 @@ const AboutUs = lazy(() => import("./pages/common/AboutUs.jsx"));
 const Roadmap = lazy(() => import("./pages/common/Roadmap.jsx"));
 const Integrations = lazy(() => import("./pages/common/Integrations.jsx"));
 const Security = lazy(() => import("./pages/common/Security.jsx"));
+const NotFound = lazy(() => import("./pages/common/NotFound.jsx"));
 
 // Legal Pages
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy.jsx"));
@@ -195,6 +196,7 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/admin-register" element={<Register />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </div>

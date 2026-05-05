@@ -9,7 +9,7 @@ export default function Login() {
     name: "",
     email: "",
     password: "",
-    organizationId: "",
+    organizationName: "",
   });
 
   const navigate = useNavigate();
@@ -18,23 +18,20 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const [orgs, setOrgs] = useState([]);
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     const fetchOrgs = async () => {
       try {
-        const { data } = await axiosClient.get("/auth/organizations");
+        const { data } = await axiosClient.get(`${baseUrl}/api/auth/organizations`);
         if (data.status) {
           setOrgs(data.data);
-          if (data.data.length > 0) {
-            setSignupForm((prev) => ({
-              ...prev,
-              organizationId: data.data[0]._id,
-            }));
-          }
         }
       } catch (err) {
         console.error("Failed to fetch organizations:", err);
-        setError("Could not load organizations. Please ensure the backend is running.");
+        setError(
+          "Could not load organizations. Please ensure the backend is running.",
+        );
       }
     };
     fetchOrgs();
@@ -58,7 +55,7 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axiosClient.post("/auth/login", loginForm);
+      const { data } = await axiosClient.post(`${baseUrl}/api/auth/login`, loginForm);
       if (!data.token) {
         throw new Error(data.message || "Login did not return an auth token");
       }
@@ -67,7 +64,7 @@ export default function Login() {
 
       let finalUser = data.user;
       if (data.status && !data.user) {
-        const userRes = await axiosClient.get("/auth/getUser");
+        const userRes = await axiosClient.get(`${baseUrl}/api/auth/getUser`);
         finalUser = userRes.data.data || userRes.data;
       }
 
@@ -106,8 +103,8 @@ export default function Login() {
     if (!signupForm.name) newErrors.signupName = "Name is required";
     if (!signupForm.email) newErrors.signupEmail = "Email is required";
     if (!signupForm.password) newErrors.signupPassword = "Password is required";
-    if (!signupForm.organizationId)
-      newErrors.signupOrganizationId = "Organization is required";
+    if (!signupForm.organizationName)
+      newErrors.signupOrganizationName = "Organization is required";
     setFieldErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) return;
@@ -115,8 +112,9 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
+      console.log(signupForm)
       const { data } = await axiosClient.post(
-        "/auth/registerCustomer",
+        `${baseUrl}/api/auth/register`,
         signupForm,
       );
       localStorage.setItem("token", data.token);
@@ -390,36 +388,38 @@ export default function Login() {
                     <BriefIcon />
                   </span>
                   <select
-                    className={`${inputCls} appearance-none cursor-pointer ${fieldErrors.signupOrganizationId ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
-                    value={signupForm.organizationId}
+                    className={`${inputCls} appearance-none cursor-pointer ${fieldErrors.signupOrganizationName ? "border-red-400 focus:border-red-500 focus:ring-red-500/15" : ""}`}
+                    value={signupForm.organizationName}
                     onChange={(e) => {
                       setSignupForm({
                         ...signupForm,
-                        organizationId: e.target.value,
+                        organizationName: e.target.value,
                       });
-                      if (fieldErrors.signupOrganizationId)
+                      if (fieldErrors.signupOrganizationName)
                         setFieldErrors({
                           ...fieldErrors,
-                          signupOrganizationId: "",
+                          signupOrganizationName: "",
                         });
                     }}
                   >
                     <option value="" disabled>
-                      {orgs.length === 0 ? "No organizations found" : "Select Organization"}
+                      {orgs.length === 0
+                        ? "No organizations found"
+                        : "Select Organization"}
                     </option>
                     {orgs.map((o) => (
-                      <option key={o._id} value={o._id}>
+                      <option key={o._id} value={o.name}>
                         {o.name}
                       </option>
                     ))}
                   </select>
                   <span
-                    className={`absolute right-3 pointer-events-none text-xs ${fieldErrors.signupOrganizationId ? "text-red-400" : "text-[#7aaabb]"}`}
+                    className={`absolute right-3 pointer-events-none text-xs ${fieldErrors.signupOrganizationName ? "text-red-400" : "text-[#7aaabb]"}`}
                   >
                     ▾
                   </span>
                 </div>
-                {fieldErrors.signupOrganizationId && (
+                {fieldErrors.signupOrganizationName && (
                   <span className="text-xs text-red-500 font-medium">
                     {fieldErrors.signupOrganizationId}
                   </span>
@@ -427,7 +427,7 @@ export default function Login() {
                 {orgs.length === 0 && !loading && (
                   <p className="text-[11px] text-[#7aaabb] mt-2">
                     Don't see your organization?{" "}
-                    <span 
+                    <span
                       onClick={() => navigate("/admin-register")}
                       className="text-[#04b8ff] font-semibold cursor-pointer hover:underline"
                     >

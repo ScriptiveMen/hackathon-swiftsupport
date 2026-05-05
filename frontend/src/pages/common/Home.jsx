@@ -24,6 +24,7 @@ const Home = () => {
       <TestimonialsSection />
       <SetupSteps />
       <FinalCTA />
+      {/* <HomeFooter /> */}
     </div>
   );
 };

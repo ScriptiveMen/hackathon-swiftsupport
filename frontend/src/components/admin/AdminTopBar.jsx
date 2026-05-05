@@ -6,6 +6,8 @@ import { useSocket } from "../../context/SocketContext.jsx";
 
 import axiosClient from "../../api/axiosClient.js";
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
 const AdminTopBar = ({ setSidebarOpen, sidebarOpen }) => {
   const { searchTerm, setSearchTerm } = useSearch();
   const { socket } = useSocket();
@@ -16,11 +18,11 @@ const AdminTopBar = ({ setSidebarOpen, sidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   React.useEffect(() => {
-    if (!user.organizationName && localStorage.getItem("token")) {
-      const fetchUser = async () => {
+    const fetchUser = async () => {
+      if (!user.organizationName && localStorage.getItem("token")) {
         try {
-          const { data } = await axiosClient.get("/auth/getUser");
-          if (data.status) {
+          const { data } = await axiosClient.get(`${baseUrl}/api/auth/getUser`);
+          if (data.status && data.data.organizationName) {
             const updatedUser = {
               ...user,
               organizationName: data.data.organizationName,
@@ -31,14 +33,14 @@ const AdminTopBar = ({ setSidebarOpen, sidebarOpen }) => {
         } catch (err) {
           console.error("Failed to fetch user for organization name:", err);
         }
-      };
-      fetchUser();
-    }
-  }, [user]);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await axiosClient.post("/auth/logout");
+      await axiosClient.post(`${baseUrl}/api/auth/logout`);
     } catch (err) {
       console.error("Logout failed:", err);
     } finally {
