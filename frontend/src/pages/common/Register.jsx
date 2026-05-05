@@ -30,7 +30,14 @@ export default function Register() {
     if (!form.organizationName)
       newErrors.organizationName = "Organization Name is required";
     if (!form.name) newErrors.name = "Full Name is required";
-    if (!form.email) newErrors.email = "Email is required";
+    if (!form.email) {
+      newErrors.email = "Email is required";
+    } else {
+      const emailRegex = /^admin@[a-zA-Z0-9-]+\.com$/;
+      if (!emailRegex.test(form.email)) {
+        newErrors.email = "Email format should be like admin@organization_name.com";
+      }
+    }
     if (!form.password) newErrors.password = "Password is required";
     if (form.password && form.password !== form.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
