@@ -119,6 +119,11 @@ async function registerUser(req, res) {
   }
 }
 
+async function registerAdmin(req, res) {
+  req.body.role = "admin";
+  return registerUser(req, res);
+}
+
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -316,6 +321,7 @@ const heartbeat = async (req, res) => {
 
 module.exports = {
   registerUser,
+  registerAdmin,
   loginUser,
   deleteUser,
   getAllOrganizations,
