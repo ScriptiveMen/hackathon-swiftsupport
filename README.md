@@ -116,19 +116,23 @@ swiftsupport/
 
 ## 📸 Screenshots
 
-> Add screenshots here
+<img width="1280" height="645" alt="6330089312891899576" src="https://github.com/user-attachments/assets/4c13beb4-66c3-4770-8d52-c9d70011ba16" />
+
 
 ### Home Page
 
-> Add screenshots here
+<img width="1280" height="647" alt="6330089312891899578" src="https://github.com/user-attachments/assets/29ca96c1-f35c-4bfd-be3b-25b508038ef3" />
+
 
 ### Admin Dashboard
 
-> Add screenshots here
+<img width="1280" height="647" alt="6330089312891899577" src="https://github.com/user-attachments/assets/76e3bae3-e0f0-40ea-bf2e-3f33feae1932" />
+
 
 ### Agent Dashboard
 
-> Add screenshots here
+<img width="1280" height="646" alt="6330089312891899579" src="https://github.com/user-attachments/assets/03d3fba5-d85b-4d96-a4a8-671e3812d100" />
+
 
 ### Customer Chat UI
 
